@@ -2,11 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>draw_lang demos</title>
+    <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="jGswF7AP3OP6VrsjgPVzEg==">
-import init, * as bindings from '/wasm_shader_runner-6e1abc210d2a754a.js';
-const wasm = await init('/wasm_shader_runner-6e1abc210d2a754a_bg.wasm');
+<script type="module" nonce="LkTf21ldTQk3o8FT8AYRvg==">
+import init, * as bindings from '/wasm_shader_runner-39d26740ea2fc4f9.js';
+const wasm = await init('/wasm_shader_runner-39d26740ea2fc4f9_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -21,58 +21,89 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 100%;
       }
       body {
+        display: flex;
+        flex-direction: column-reverse;
         margin: 0px;
         width: 100%;
-        height: 100%;
         background-color: black;
       }
-      #canvas {
+      canvas {
         background-color: black;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
       }
     </style>
-  <link rel="modulepreload" href="/wasm_shader_runner-6e1abc210d2a754a.js" crossorigin=anonymous integrity="sha384-EbdY8h5Ex7Nl3gLme+gUISmgN50lbtth5esqmKAtxNhLFH43rkQhp1OFgXhkHsEZ"><link rel="preload" href="/wasm_shader_runner-6e1abc210d2a754a_bg.wasm" crossorigin=anonymous integrity="sha384-J4VAyfNYeOnrZ1hcLBW4jycYZykQpJ/RAly6Vl5ubwq8iReWo2IiybxB47dx9iqS" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/wasm_shader_runner-39d26740ea2fc4f9.js" crossorigin=anonymous integrity="sha384-kuZGZm4q+HTRM8tqbwVB+rgBplF6j6jt3aabfFkyQqx7F9gUWfdFANm84HLf9ItB"><link rel="preload" href="/wasm_shader_runner-39d26740ea2fc4f9_bg.wasm" crossorigin=anonymous integrity="sha384-s4dCKl9eI8AQiU4uNaWCUqlHMb1O5H/0Q5wcp2/rWGQg37KbkB3s+xSLxmA16/E9" as="fetch" type="application/wasm"></head>
   <body>
-    <h1>Send Text to WebAssembly</h1>
-    <textarea
-      id="input-text"
-      rows="20"
-      cols="200"
-      placeholder="Enter your shader code here..."
-    ></textarea>
-    <br />
+    <div>
+      <textarea
+        id="input-text"
+        rows="20"
+        cols="200"
+        placeholder="Enter your shader code here..."
+      ></textarea>
+      <br />
+      <button id="send-button">Apply shader code</button>
 
-    <button id="send-button">Apply shader code</button>
+      <script type="module">
+        import {
+          set_fragment_shader,
+          update_player_state,
+        } from "/wasm_shader_runner-39d26740ea2fc4f9.js";
 
-    <script type="module">
-      import { set_fragment_shader } from "/wasm_shader_runner-6e1abc210d2a754a.js";
+        const sendButton = document.getElementById("send-button");
+        const inputText = document.getElementById("input-text");
 
-      const sendButton = document.getElementById("send-button");
-      const inputText = document.getElementById("input-text");
-
-      inputText.value = "#version 300 es \n\
-precision mediump float;\n\
-#pragma vscode_glsllint_stage : frag\n\
-\n\
-const float PI = 3.1415926;\n\
-\n\
-uniform vec2 u_resolution;\n\
-uniform float u_time;\n\
-\n\
-in vec2 vUv;\n\
-out vec4 frag_color;\n\
-\n\
-void main()\n\
+        inputText.value = "void mainImage(out vec4 fragColor, in vec2 fragCoord)\n\
 {\n\
-  frag_color = vec4(sin(vUv.x+u_time / 1000.0)/2.0+0.5, sin(vUv.y+u_time / 1000.0)/2.0+0.5, cos(vUv.x+vUv.y+u_time / 1000.0)/2.0+0.5, 1.0);\n\
+  fragColor = vec4(sin(fragCoord.x/iResolution.x+iTime)/2.0+0.5, sin(fragCoord.y/iResolution.y+iTime)/2.0+0.5, cos(fragCoord.x/iResolution.x+fragCoord.y/iResolution.y+iTime)/2.0+0.5, 1.0);\n\
 }";
 
-      sendButton.addEventListener("click", () => {
-        const text = inputText.value;
-        set_fragment_shader(text);
-        console.log("Shader text applied");
-      });
-    </script>
+        sendButton.addEventListener("click", () => {
+          const text = inputText.value;
+          set_fragment_shader(text);
+          console.log("Shader text applied");
+        });
+
+        addEventListener("TrunkApplicationStarted", (event) => {
+          addEventListener("WasmErrorEvent", (event) => {
+            alert("Wasm reported error: " + event.detail);
+          });
+
+          const canvas = document.querySelector("canvas");
+
+          let mouse_down = false;
+          let down_x = -1;
+          let down_y = -1;
+
+          canvas.addEventListener("mousedown", (event) => {
+            const rect = canvas.getBoundingClientRect();
+
+            mouse_down = true;
+            down_x = event.clientX - rect.left;
+            down_y = event.clientY - rect.top;
+          });
+
+          canvas.addEventListener("mouseup", (event) => {
+            mouse_down = false;
+            down_x = -1;
+            down_y = -1;
+          });
+
+          // Mouse move handler for iMouse uniform
+          canvas.addEventListener("mousemove", (event) => {
+            if (mouse_down) {
+              const rect = canvas.getBoundingClientRect(); // Determine canvas position
+
+              // Relative to canvas coords
+              const x = event.clientX - rect.left; // Relative coord X
+              const y = event.clientY - rect.top; // Relative coord Y
+
+              update_player_state({ mouse: { x, y, down_x, down_y } }); // pass iMouse values
+            }
+          });
+        });
+      </script>
+    </div>
   </body>
 </html>

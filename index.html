@@ -10,43 +10,86 @@
         height: 100%;
       }
       body {
+        display: flex;
+        flex-direction: column-reverse;
         margin: 0px;
         width: 100%;
-        height: 100%;
         background-color: black;
       }
-      #canvas {
+      canvas {
         background-color: black;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
       }
     </style>
   </head>
   <body>
-    <h1>Send Text to WebAssembly</h1>
-    <textarea
-      id="input-text"
-      rows="20"
-      cols="200"
-      placeholder="Enter your shader code here..."
-    ></textarea>
-    <br />
+    <div>
+      <textarea
+        id="input-text"
+        rows="20"
+        cols="200"
+        placeholder="Enter your shader code here..."
+      ></textarea>
+      <br />
+      <button id="send-button">Apply shader code</button>
 
-    <button id="send-button">Apply shader code</button>
+      <script type="module">
+        import {
+          set_fragment_shader,
+          update_player_state,
+        } from "/dynamic_javascript_filename.js";
 
-    <script type="module">
-      import { set_fragment_shader } from "/dynamic_javascript_filename.js";
+        const sendButton = document.getElementById("send-button");
+        const inputText = document.getElementById("input-text");
 
-      const sendButton = document.getElementById("send-button");
-      const inputText = document.getElementById("input-text");
+        inputText.value = "default_shader_code_text";
 
-      inputText.value = "default_shader_code_text";
+        sendButton.addEventListener("click", () => {
+          const text = inputText.value;
+          set_fragment_shader(text);
+          console.log("Shader text applied");
+        });
 
-      sendButton.addEventListener("click", () => {
-        const text = inputText.value;
-        set_fragment_shader(text);
-        console.log("Shader text applied");
-      });
-    </script>
+        addEventListener("TrunkApplicationStarted", (event) => {
+          addEventListener("WasmErrorEvent", (event) => {
+            alert("Wasm reported error: " + event.detail);
+          });
+
+          const canvas = document.querySelector("canvas");
+
+          let mouse_down = false;
+          let down_x = -1;
+          let down_y = -1;
+
+          canvas.addEventListener("mousedown", (event) => {
+            const rect = canvas.getBoundingClientRect();
+
+            mouse_down = true;
+            down_x = event.clientX - rect.left;
+            down_y = event.clientY - rect.top;
+          });
+
+          canvas.addEventListener("mouseup", (event) => {
+            mouse_down = false;
+            down_x = -1;
+            down_y = -1;
+          });
+
+          // Mouse move handler for iMouse uniform
+          canvas.addEventListener("mousemove", (event) => {
+            if (mouse_down) {
+              const rect = canvas.getBoundingClientRect(); // Determine canvas position
+
+              // Relative to canvas coords
+              const x = event.clientX - rect.left; // Relative coord X
+              const y = event.clientY - rect.top; // Relative coord Y
+
+              update_player_state({ mouse: { x, y, down_x, down_y } }); // pass iMouse values
+            }
+          });
+        });
+      </script>
+    </div>
   </body>
 </html>

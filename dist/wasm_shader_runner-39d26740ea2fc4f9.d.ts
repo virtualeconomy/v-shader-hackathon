@@ -4,12 +4,17 @@
  * @param {string} new_shader_code
  */
 export function set_fragment_shader(new_shader_code: string): void;
+/**
+ * @param {any} state
+ */
+export function update_player_state(state: any): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly set_fragment_shader: (a: number, b: number) => void;
+  readonly update_player_state: (a: number) => void;
   readonly main: (a: number, b: number) => number;
   readonly __wbindgen_export_0: (a: number, b: number) => number;
   readonly __wbindgen_export_1: (a: number, b: number, c: number, d: number) => number;

@@ -1,16 +1,4 @@
-#version 300 es 
-precision mediump float;
-#pragma vscode_glsllint_stage : frag
-
-const float PI = 3.1415926;
-
-uniform vec2 u_resolution;
-uniform float u_time;
-
-in vec2 vUv;
-out vec4 frag_color;
-
-void main()
+void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-  frag_color = vec4(sin(vUv.x+u_time / 1000.0)/2.0+0.5, sin(vUv.y+u_time / 1000.0)/2.0+0.5, cos(vUv.x+vUv.y+u_time / 1000.0)/2.0+0.5, 1.0);
+  fragColor = vec4(sin(fragCoord.x/iResolution.x+iTime)/2.0+0.5, sin(fragCoord.y/iResolution.y+iTime)/2.0+0.5, cos(fragCoord.x/iResolution.x+fragCoord.y/iResolution.y+iTime)/2.0+0.5, 1.0);
 }
