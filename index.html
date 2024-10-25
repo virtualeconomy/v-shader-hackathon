@@ -33,7 +33,7 @@
       ></textarea>
       <br />
       <button id="send-button">Apply shader code</button>
-      <button id="pause-button">Pause</button>
+      <button id="pause-button">Stop animation</button>
       <button id="lose-context">Test "Lose WebGL context"</button>
 
       <script type="module">
@@ -61,10 +61,10 @@
         pauseButton.addEventListener("click", () => {
           if (paused) {
             play();
-            pauseButton.innerText = "Pause";
+            pauseButton.innerText = "Stop animation";
           } else {
             stop();
-            pauseButton.innerText = "Resume";
+            pauseButton.innerText = "Resume animation";
           }
           paused = !paused;
         });

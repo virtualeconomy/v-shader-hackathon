@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="Tt7fX8NrUOmoSZ7xe6AJ3Q==">
+<script type="module" nonce="g35YZuxx7QAcwW9OPR9fKA==">
 import init, * as bindings from '/wasm_shader_runner-6398731463df147a.js';
 const wasm = await init('/wasm_shader_runner-6398731463df147a_bg.wasm');
 
@@ -44,7 +44,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       ></textarea>
       <br />
       <button id="send-button">Apply shader code</button>
-      <button id="pause-button">Pause</button>
+      <button id="pause-button">Stop animation</button>
       <button id="lose-context">Test "Lose WebGL context"</button>
 
       <script type="module">
@@ -75,10 +75,10 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         pauseButton.addEventListener("click", () => {
           if (paused) {
             play();
-            pauseButton.innerText = "Pause";
+            pauseButton.innerText = "Stop animation";
           } else {
             stop();
-            pauseButton.innerText = "Resume";
+            pauseButton.innerText = "Resume animation";
           }
           paused = !paused;
         });

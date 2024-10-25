@@ -77,8 +77,17 @@ Default values in state:
         down_x: 0
         down_y: 0
     }
+    pause: false
 }
 ```
+
+### function stop(state: any): void;
+
+Stops animation till play() call
+
+### function play(state: any): void;
+
+Resumes animation after stop() call
 
 ## Events:
 
