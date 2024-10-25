@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="YzckmyGxdb6VM4LIwUaN/g==">
-import init, * as bindings from '/wasm_shader_runner-fc0607b2cab5f500.js';
-const wasm = await init('/wasm_shader_runner-fc0607b2cab5f500_bg.wasm');
+<script type="module" nonce="Tt7fX8NrUOmoSZ7xe6AJ3Q==">
+import init, * as bindings from '/wasm_shader_runner-6398731463df147a.js';
+const wasm = await init('/wasm_shader_runner-6398731463df147a_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -33,7 +33,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 100vh;
       }
     </style>
-  <link rel="modulepreload" href="/wasm_shader_runner-fc0607b2cab5f500.js" crossorigin=anonymous integrity="sha384-cVihWkqTOokqfHWyo6FnnE2AcXfW5J0BWiPUaQOStx60suDxc7fIfWSriKxOZoPh"><link rel="preload" href="/wasm_shader_runner-fc0607b2cab5f500_bg.wasm" crossorigin=anonymous integrity="sha384-ClsaWO5aso+CCRTd1HIt1VNt+qwBod6lvLMhqv4R5di7xhgtkYHLrK5BDu4ZmhPT" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/wasm_shader_runner-6398731463df147a.js" crossorigin=anonymous integrity="sha384-VwMEGbyWwuZgGe98R0qqlbwUNXDG7fo7LRg0Wm2HTy2MU+lRLHBEvcCG4/PIBU3L"><link rel="preload" href="/wasm_shader_runner-6398731463df147a_bg.wasm" crossorigin=anonymous integrity="sha384-4/fB7U/G9RerwGdE4z0ib96NYDc0EKwQP6W8A5gOIX2jnXVvLBmEj8CPPKZIjSAE" as="fetch" type="application/wasm"></head>
   <body>
     <div>
       <textarea
@@ -44,16 +44,20 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       ></textarea>
       <br />
       <button id="send-button">Apply shader code</button>
+      <button id="pause-button">Pause</button>
       <button id="lose-context">Test "Lose WebGL context"</button>
 
       <script type="module">
         import {
           set_fragment_shader,
           update_player_state,
-        } from "/wasm_shader_runner-fc0607b2cab5f500.js";
+          play,
+          stop,
+        } from "/wasm_shader_runner-6398731463df147a.js";
 
-        const sendButton = document.getElementById("send-button");
         const inputText = document.getElementById("input-text");
+        const sendButton = document.getElementById("send-button");
+        const pauseButton = document.getElementById("pause-button");
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
         inputText.value = "void mainImage(out vec4 fragColor, in vec2 fragCoord)\n\
@@ -65,6 +69,18 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           const text = inputText.value;
           set_fragment_shader(text);
           console.log("Shader text applied");
+        });
+
+        let paused = false;
+        pauseButton.addEventListener("click", () => {
+          if (paused) {
+            play();
+            pauseButton.innerText = "Pause";
+          } else {
+            stop();
+            pauseButton.innerText = "Resume";
+          }
+          paused = !paused;
         });
 
         addEventListener("TrunkApplicationStarted", (event) => {

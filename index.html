@@ -33,16 +33,20 @@
       ></textarea>
       <br />
       <button id="send-button">Apply shader code</button>
+      <button id="pause-button">Pause</button>
       <button id="lose-context">Test "Lose WebGL context"</button>
 
       <script type="module">
         import {
           set_fragment_shader,
           update_player_state,
+          play,
+          stop,
         } from "/dynamic_javascript_filename.js";
 
-        const sendButton = document.getElementById("send-button");
         const inputText = document.getElementById("input-text");
+        const sendButton = document.getElementById("send-button");
+        const pauseButton = document.getElementById("pause-button");
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
         inputText.value = "default_shader_code_text";
@@ -51,6 +55,18 @@
           const text = inputText.value;
           set_fragment_shader(text);
           console.log("Shader text applied");
+        });
+
+        let paused = false;
+        pauseButton.addEventListener("click", () => {
+          if (paused) {
+            play();
+            pauseButton.innerText = "Pause";
+          } else {
+            stop();
+            pauseButton.innerText = "Resume";
+          }
+          paused = !paused;
         });
 
         addEventListener("TrunkApplicationStarted", (event) => {

@@ -23,6 +23,7 @@ struct MouseUniform {
 #[derive(Clone, Copy, Deserialize, Debug, Default)]
 struct PlayerState {
     mouse: Option<MouseUniform>,
+    paused: Option<bool>,
 }
 
 static PLAYER_STATE_STORAGE: OnceLock<Mutex<PlayerState>> = OnceLock::new();
@@ -50,6 +51,53 @@ pub fn set_fragment_shader(new_shader_code: &str) {
     RELOAD_FRAGMENT_SHADER.store(true, Ordering::Relaxed);
 }
 
+#[wasm_bindgen]
+pub fn update_player_state(state: JsValue) {
+    match serde_wasm_bindgen::from_value::<PlayerState>(state) {
+        Ok(state) => {
+            if let Some(mutex) = PLAYER_STATE_STORAGE.get() {
+                if let Ok(mut player_state) = mutex.lock() {
+                    player_state.mouse = state.mouse.or(player_state.mouse);
+                    player_state.paused = state.paused.or(player_state.paused);
+                } else {
+                    gl::error!("Failed to lock player state mutex");
+                }
+            } else if PLAYER_STATE_STORAGE.set(Mutex::new(state)).is_err() {
+                report_error("Failed to init mutex: don't change player state in separate threads");
+            }
+        }
+        Err(error) => report_error(&format!("Unkown player state format: {:?}", error)),
+    }
+}
+
+#[wasm_bindgen]
+pub fn play() {
+    set_paused(false);
+}
+
+#[wasm_bindgen]
+pub fn stop() {
+    set_paused(true);
+}
+
+fn set_paused(value: bool) {
+    if let Some(mutex) = PLAYER_STATE_STORAGE.get() {
+        if let Ok(mut player_state) = mutex.lock() {
+            player_state.paused = Some(value);
+        } else {
+            gl::error!("Failed to lock player state mutex");
+        }
+    } else if PLAYER_STATE_STORAGE
+        .set(Mutex::new(PlayerState {
+            paused: Some(value),
+            ..Default::default()
+        }))
+        .is_err()
+    {
+        report_error("Failed to init mutex: don't change player state in separate threads");
+    }
+}
+
 pub fn report_error(message: &str) {
     gl::error!("{}", message);
     let event_init = web_sys::CustomEventInit::new();
@@ -71,27 +119,6 @@ pub fn report_error(message: &str) {
 
     if let Err(error) = target.dispatch_event(&event) {
         gl::error!("Failed to dispatch event {:?}", error)
-    }
-}
-
-#[wasm_bindgen]
-pub fn update_player_state(state: JsValue) {
-    match serde_wasm_bindgen::from_value::<PlayerState>(state) {
-        Ok(state) => {
-            if let Some(mutex) = PLAYER_STATE_STORAGE.get() {
-                if let Ok(mut player_state) = mutex.lock() {
-                    player_state.mouse = state.mouse.or(player_state.mouse);
-                } else {
-                    gl::error!("Failed to lock player state mutex");
-                }
-            } else if PLAYER_STATE_STORAGE
-                .set(Mutex::new(PlayerState { mouse: state.mouse }))
-                .is_err()
-            {
-                report_error("Failed to init mutex: don't change player state in separate threads");
-            }
-        }
-        Err(error) => report_error(&format!("Unkown player state format: {:?}", error)),
     }
 }
 
@@ -168,6 +195,7 @@ fn run() -> Result<(), gl::WebglError> {
     let mut last_time = 0f64;
     let mut frame = 0f32;
     let mut reload_webgl2_context = false;
+    let mut player_state = PlayerState::default();
 
     let mut resolution_loc = gl.get_uniform_location(&program, "iResolution");
     let mut time_loc = gl.get_uniform_location(&program, "iTime");
@@ -227,6 +255,16 @@ fn run() -> Result<(), gl::WebglError> {
                 }
                 RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
             }
+            player_state = if let Some(player_state_mutex) = PLAYER_STATE_STORAGE.get() {
+                player_state_mutex.try_lock().as_deref().cloned().ok()
+            } else {
+                None
+            }
+            .unwrap_or(player_state);
+            if player_state.paused == Some(true) {
+                // Do nothing if is paused
+                return true;
+            }
             gl.uniform1f(time_loc.as_ref(), t as f32);
             if let Some(window) = web_sys::window() {
                 gl.uniform3f(
@@ -255,20 +293,15 @@ fn run() -> Result<(), gl::WebglError> {
             gl.uniform1f(frame_loc.as_ref(), frame);
             frame += 1f32;
             gl.uniform1f(frame_rate_loc.as_ref(), 1f32 / time_dif);
-            if let Some(player_state_mutex) = PLAYER_STATE_STORAGE.get() {
-                if let Ok(&PlayerState {
-                    mouse:
-                        Some(MouseUniform {
-                            x,
-                            y,
-                            down_x,
-                            down_y,
-                        }),
-                }) = player_state_mutex.try_lock().as_deref()
-                // Don't wait while rendering, update mouse next rendering
-                {
-                    gl.uniform4f(mouse_loc.as_ref(), x, y, down_x, down_y);
-                }
+            if let Some(MouseUniform {
+                x,
+                y,
+                down_x,
+                down_y,
+            }) = player_state.mouse
+            // Don't wait while rendering, update mouse next rendering
+            {
+                gl.uniform4f(mouse_loc.as_ref(), x, y, down_x, down_y);
             }
             let date = Date::new_0();
             gl.uniform4f(
