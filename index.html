@@ -33,6 +33,7 @@
       ></textarea>
       <br />
       <button id="send-button">Apply shader code</button>
+      <button id="lose-context">Test "Lose WebGL context"</button>
 
       <script type="module">
         import {
@@ -43,6 +44,7 @@
         const sendButton = document.getElementById("send-button");
         const inputText = document.getElementById("input-text");
 
+        // Init textarea with `shaders/shader.frag` content, as default shader code by build script
         inputText.value = "default_shader_code_text";
 
         sendButton.addEventListener("click", () => {
@@ -52,16 +54,20 @@
         });
 
         addEventListener("TrunkApplicationStarted", (event) => {
+          // Code sample for error reporting from wasm (for example about shader compilation errors)
           addEventListener("WasmErrorEvent", (event) => {
             alert("Wasm reported error: " + event.detail);
           });
 
+          // Code sample for passing mouse coordinates to iMouse uniform
+          // uniform vec4	iMouse; // image/buffer	xy = current pixel coords (if LMB is down). zw = click pixel
           const canvas = document.querySelector("canvas");
 
           let mouse_down = false;
           let down_x = -1;
           let down_y = -1;
 
+          // Save click pixel coords
           canvas.addEventListener("mousedown", (event) => {
             const rect = canvas.getBoundingClientRect();
 
@@ -86,6 +92,26 @@
               const y = event.clientY - rect.top; // Relative coord Y
 
               update_player_state({ mouse: { x, y, down_x, down_y } }); // pass iMouse values
+            }
+          });
+
+          const loseContextButton = document.getElementById("lose-context");
+          loseContextButton.addEventListener("click", () => {
+            const canvas = document.querySelector("canvas");
+            // Get the WebGL context from a canvas element
+            const gl = canvas.getContext("webgl2");
+
+            // Check if the WEBGL_lose_context extension is available
+            const loseContext = gl.getExtension("WEBGL_lose_context");
+
+            if (loseContext) {
+              // Simulate context loss
+              loseContext.loseContext();
+              setTimeout(() => {
+                loseContext.restoreContext();
+              }, 3000); // Restore context after 3 seconds
+            } else {
+              console.error("WEBGL_lose_context extension not available");
             }
           });
         });

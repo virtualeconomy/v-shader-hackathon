@@ -53,3 +53,46 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 ```
 
 All other declaration should be compatible with GLSL
+
+# WASM-JS API
+
+## Functions:
+
+### function set_fragment_shader(new_shader_code: string): void;
+
+Passes shader code to WASM, if not called then default shader from shaders/shader.frag would be loaded
+
+### function update_player_state(state: any): void;
+
+Sets param of shader playback.
+
+Default values in state:
+
+```JSON
+{
+    // Param for `iMouse` uniform
+    mouse {
+        x: 0
+        y: 0
+        down_x: 0
+        down_y: 0
+    }
+}
+```
+
+## Events:
+
+### TrunkApplicationStarted
+
+Emits on WASM finish loading
+
+### WasmErrorEvent
+
+Emits when error occured (console.log also prints error info independently). Usage example:
+
+```Javascript
+addEventListener("WasmErrorEvent", (event) => {
+    // `event.detail` contains error message.
+    alert(event.detail);
+});
+```

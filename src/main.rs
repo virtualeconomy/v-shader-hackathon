@@ -4,7 +4,12 @@ use js_sys::Date;
 use minwebgl as gl;
 use serde::Deserialize;
 use std::sync::{atomic::Ordering, Mutex, OnceLock};
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{
+    closure::{Closure, IntoWasmClosure},
+    convert::FromWasmAbi,
+    prelude::wasm_bindgen,
+    JsCast, JsValue,
+};
 use web_sys::{window, CustomEvent, EventTarget};
 
 #[derive(Clone, Copy, Deserialize, Debug, Default)]
@@ -23,6 +28,7 @@ struct PlayerState {
 static PLAYER_STATE_STORAGE: OnceLock<Mutex<PlayerState>> = OnceLock::new();
 static FRAGMENT_SHADER_STORAGE: OnceLock<Mutex<String>> = OnceLock::new();
 static RELOAD_FRAGMENT_SHADER: AtomicBool = AtomicBool::new(false);
+static LOST_WEBGL2_CONTEXT: AtomicBool = AtomicBool::new(false);
 
 #[wasm_bindgen]
 pub fn set_fragment_shader(new_shader_code: &str) {
@@ -113,21 +119,55 @@ fn get_shader() -> Option<String> {
     Some(FRAGMENT_SHADER_STORAGE.get()?.lock().ok()?.to_owned())
 }
 
+fn add_event_listener<F: IntoWasmClosure<dyn FnMut(E)> + 'static, E: FromWasmAbi + 'static>(
+    event_target: EventTarget,
+    event_type: &str,
+    f: F,
+) {
+    let closure: Closure<dyn FnMut(E)> = Closure::new(f);
+    let callback = closure.as_ref().unchecked_ref::<js_sys::Function>();
+    if let Err(error) = event_target.add_event_listener_with_callback(event_type, callback) {
+        gl::error!("Can not subscribe to canvas events{:?}", error);
+    }
+    closure.forget();
+}
+
 fn run() -> Result<(), gl::WebglError> {
     gl::browser::setup(Default::default());
-    let gl = gl::context::retrieve_or_make()?;
+    let canvas = gl::canvas::retrieve_or_make()?;
+    let gl = gl::context::from_canvas(&canvas)?;
+
+    add_event_listener(
+        canvas.clone().into(),
+        "webglcontextlost",
+        move |event: web_sys::Event| {
+            gl::error!("Canvas lost WebGL2 context");
+            event.prevent_default();
+            LOST_WEBGL2_CONTEXT.store(true, Ordering::Relaxed);
+        },
+    );
+
+    add_event_listener(
+        canvas.clone().into(),
+        "webglcontextrestored",
+        move |_: web_sys::Event| {
+            gl::info!("Canvas restored WebGL2 context");
+            LOST_WEBGL2_CONTEXT.store(false, Ordering::Relaxed);
+        },
+    );
 
     // Vertex and fragment shader source code
     let vertex_shader_src = include_str!("../shaders/shader.vert");
     let default_frag_shader_src = include_str!("../shaders/shader.frag");
     let frag_shader = get_shader().unwrap_or(prepare_shader(default_frag_shader_src));
-    let program =
+    let mut program =
         gl::ProgramFromSources::new(vertex_shader_src, &frag_shader).compile_and_link(&gl)?;
     gl.use_program(Some(&program));
     RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
 
     let mut last_time = 0f64;
     let mut frame = 0f32;
+    let mut reload_webgl2_context = false;
 
     let mut resolution_loc = gl.get_uniform_location(&program, "iResolution");
     let mut time_loc = gl.get_uniform_location(&program, "iTime");
@@ -141,34 +181,51 @@ fn run() -> Result<(), gl::WebglError> {
     let update_and_draw = {
         move |mut t: f64| {
             t /= 1000f64;
-            if RELOAD_FRAGMENT_SHADER.load(Ordering::Relaxed) {
-                if let Some(fragment_shader_mutex) = FRAGMENT_SHADER_STORAGE.get() {
-                    if let Ok(fragment_shader) = fragment_shader_mutex.lock() {
-                        let program =
-                            gl::ProgramFromSources::new(vertex_shader_src, &fragment_shader)
-                                .compile_and_link(&gl);
-                        match program {
-                            Ok(program) => {
-                                gl.use_program(Some(&program));
-                                resolution_loc = gl.get_uniform_location(&program, "iResolution");
-                                time_loc = gl.get_uniform_location(&program, "iTime");
-                                time_delta_loc = gl.get_uniform_location(&program, "iTimeDelta");
-                                frame_loc = gl.get_uniform_location(&program, "iFrame");
-                                frame_rate_loc = gl.get_uniform_location(&program, "iFrameRate");
-                                mouse_loc = gl.get_uniform_location(&program, "iMouse");
-                                date_loc = gl.get_uniform_location(&program, "iDate");
-                            }
-                            Err(error) => {
-                                report_error(&format!("Shader compilation error: {}", error));
-                            }
-                        }
-                        RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
-                    } else {
-                        gl::error!("Failed to lock mutex: attempt to read shader at same time with writing, don't write shader to often");
-                    }
-                } else {
-                    gl::warn!("Reload shader signal received with no shader");
+            let mut force_reload_shader = false;
+            match (
+                LOST_WEBGL2_CONTEXT.load(Ordering::Relaxed),
+                reload_webgl2_context,
+            ) {
+                (true, false) => {
+                    // Free resources
+                    gl.delete_program(Some(&program));
+                    reload_webgl2_context = true;
+                    return true;
                 }
+                (true, true) => {
+                    return true;
+                }
+                (false, true) => {
+                    gl::info!("forsing shader reload");
+                    force_reload_shader = true;
+                    reload_webgl2_context = false;
+                }
+                _ => {}
+            }
+
+            if force_reload_shader || RELOAD_FRAGMENT_SHADER.load(Ordering::Relaxed) {
+                let fragment_shader =
+                    get_shader().unwrap_or(prepare_shader(default_frag_shader_src));
+                let new_program = gl::ProgramFromSources::new(vertex_shader_src, &fragment_shader)
+                    .compile_and_link(&gl);
+                match new_program {
+                    Ok(new_program) => {
+                        program = new_program;
+                        gl.use_program(Some(&program));
+                        resolution_loc = gl.get_uniform_location(&program, "iResolution");
+                        time_loc = gl.get_uniform_location(&program, "iTime");
+                        time_delta_loc = gl.get_uniform_location(&program, "iTimeDelta");
+                        frame_loc = gl.get_uniform_location(&program, "iFrame");
+                        frame_rate_loc = gl.get_uniform_location(&program, "iFrameRate");
+                        mouse_loc = gl.get_uniform_location(&program, "iMouse");
+                        date_loc = gl.get_uniform_location(&program, "iDate");
+                        gl::info!("shader reloaded");
+                    }
+                    Err(error) => {
+                        report_error(&format!("Shader compilation error: {}", error));
+                    }
+                }
+                RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
             }
             gl.uniform1f(time_loc.as_ref(), t as f32);
             if let Some(window) = web_sys::window() {

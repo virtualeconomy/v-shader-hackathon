@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="LkTf21ldTQk3o8FT8AYRvg==">
-import init, * as bindings from '/wasm_shader_runner-39d26740ea2fc4f9.js';
-const wasm = await init('/wasm_shader_runner-39d26740ea2fc4f9_bg.wasm');
+<script type="module" nonce="YzckmyGxdb6VM4LIwUaN/g==">
+import init, * as bindings from '/wasm_shader_runner-fc0607b2cab5f500.js';
+const wasm = await init('/wasm_shader_runner-fc0607b2cab5f500_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -33,7 +33,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 100vh;
       }
     </style>
-  <link rel="modulepreload" href="/wasm_shader_runner-39d26740ea2fc4f9.js" crossorigin=anonymous integrity="sha384-kuZGZm4q+HTRM8tqbwVB+rgBplF6j6jt3aabfFkyQqx7F9gUWfdFANm84HLf9ItB"><link rel="preload" href="/wasm_shader_runner-39d26740ea2fc4f9_bg.wasm" crossorigin=anonymous integrity="sha384-s4dCKl9eI8AQiU4uNaWCUqlHMb1O5H/0Q5wcp2/rWGQg37KbkB3s+xSLxmA16/E9" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/wasm_shader_runner-fc0607b2cab5f500.js" crossorigin=anonymous integrity="sha384-cVihWkqTOokqfHWyo6FnnE2AcXfW5J0BWiPUaQOStx60suDxc7fIfWSriKxOZoPh"><link rel="preload" href="/wasm_shader_runner-fc0607b2cab5f500_bg.wasm" crossorigin=anonymous integrity="sha384-ClsaWO5aso+CCRTd1HIt1VNt+qwBod6lvLMhqv4R5di7xhgtkYHLrK5BDu4ZmhPT" as="fetch" type="application/wasm"></head>
   <body>
     <div>
       <textarea
@@ -44,16 +44,18 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       ></textarea>
       <br />
       <button id="send-button">Apply shader code</button>
+      <button id="lose-context">Test "Lose WebGL context"</button>
 
       <script type="module">
         import {
           set_fragment_shader,
           update_player_state,
-        } from "/wasm_shader_runner-39d26740ea2fc4f9.js";
+        } from "/wasm_shader_runner-fc0607b2cab5f500.js";
 
         const sendButton = document.getElementById("send-button");
         const inputText = document.getElementById("input-text");
 
+        // Init textarea with `shaders/shader.frag` content, as default shader code by build script
         inputText.value = "void mainImage(out vec4 fragColor, in vec2 fragCoord)\n\
 {\n\
   fragColor = vec4(sin(fragCoord.x/iResolution.x+iTime)/2.0+0.5, sin(fragCoord.y/iResolution.y+iTime)/2.0+0.5, cos(fragCoord.x/iResolution.x+fragCoord.y/iResolution.y+iTime)/2.0+0.5, 1.0);\n\
@@ -66,16 +68,20 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         });
 
         addEventListener("TrunkApplicationStarted", (event) => {
+          // Code sample for error reporting from wasm (for example about shader compilation errors)
           addEventListener("WasmErrorEvent", (event) => {
             alert("Wasm reported error: " + event.detail);
           });
 
+          // Code sample for passing mouse coordinates to iMouse uniform
+          // uniform vec4	iMouse; // image/buffer	xy = current pixel coords (if LMB is down). zw = click pixel
           const canvas = document.querySelector("canvas");
 
           let mouse_down = false;
           let down_x = -1;
           let down_y = -1;
 
+          // Save click pixel coords
           canvas.addEventListener("mousedown", (event) => {
             const rect = canvas.getBoundingClientRect();
 
@@ -100,6 +106,26 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
               const y = event.clientY - rect.top; // Relative coord Y
 
               update_player_state({ mouse: { x, y, down_x, down_y } }); // pass iMouse values
+            }
+          });
+
+          const loseContextButton = document.getElementById("lose-context");
+          loseContextButton.addEventListener("click", () => {
+            const canvas = document.querySelector("canvas");
+            // Get the WebGL context from a canvas element
+            const gl = canvas.getContext("webgl2");
+
+            // Check if the WEBGL_lose_context extension is available
+            const loseContext = gl.getExtension("WEBGL_lose_context");
+
+            if (loseContext) {
+              // Simulate context loss
+              loseContext.loseContext();
+              setTimeout(() => {
+                loseContext.restoreContext();
+              }, 3000); // Restore context after 3 seconds
+            } else {
+              console.error("WEBGL_lose_context extension not available");
             }
           });
         });
