@@ -25,16 +25,55 @@
   </head>
   <body>
     <div>
-      <textarea
-        id="input-text"
-        rows="20"
-        cols="200"
-        placeholder="Enter your shader code here..."
-      ></textarea>
-      <br />
-      <button id="send-button">Apply shader code</button>
-      <button id="pause-button">Stop animation</button>
-      <button id="lose-context">Test "Lose WebGL context"</button>
+      <div>
+        <textarea
+          id="input-shader-text"
+          rows="20"
+          cols="200"
+          placeholder="Enter your shader code here..."
+        ></textarea>
+        <br />
+        <button id="send-shader-button">Apply shader code</button>
+        <button id="pause-button">Stop animation</button>
+        <button id="lose-context">Test "Lose WebGL context"</button>
+      </div>
+      <div>
+        <textarea
+          id="input-player-state"
+          rows="20"
+          cols="200"
+          placeholder="Enter your shader code here..."
+        >
+{
+    "uniforms": {
+        "resolution": {
+            "width": 1920,
+            "height": 1080,
+            "pixel_aspect_ratio": 1
+        },
+        "time": 3600,
+        "time_delta": 0.02,
+        "frame": 100,
+        "frame_rate": 50,
+        "mouse": {
+            "x": 0,
+            "y": 0,
+            "down_x": 0,
+            "down_y": 0
+        },
+        "date": {
+            "year": 2024,
+            "month": 10,
+            "day": 30,
+            "time": 3600
+        }
+    },
+    "paused": true
+}
+        </textarea>
+        <br />
+        <button id="send-player-state">Send custom player state</button>
+      <div>
 
       <script type="module">
         import {
@@ -44,18 +83,26 @@
           stop,
         } from "/dynamic_javascript_filename.js";
 
-        const inputText = document.getElementById("input-text");
-        const sendButton = document.getElementById("send-button");
+        const inputShaderText = document.getElementById("input-shader-text");
+        const sendShaderButton = document.getElementById("send-shader-button");
         const pauseButton = document.getElementById("pause-button");
+        const inputPlayerState = document.getElementById("input-player-state");
+        const sendPlayerState = document.getElementById("send-player-state");
+
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
-        inputText.value = "default_shader_code_text";
+        inputShaderText.value = "default_shader_code_text";
 
-        sendButton.addEventListener("click", () => {
-          const text = inputText.value;
-          set_fragment_shader(text);
+        sendShaderButton.addEventListener("click", () => {
+          set_fragment_shader(inputShaderText.value);
           console.log("Shader text applied");
         });
+
+        sendPlayerState.addEventListener("click", () => {
+          let json = JSON.parse(inputPlayerState.value);
+          console.log(json);
+          update_player_state(JSON.parse(inputPlayerState.value));
+        })
 
         let paused = false;
         pauseButton.addEventListener("click", () => {
@@ -67,6 +114,7 @@
             pauseButton.innerText = "Resume animation";
           }
           paused = !paused;
+          // play()/stop() can be replaced by update_player_state({paused});
         });
 
         addEventListener("TrunkApplicationStarted", (event) => {
@@ -98,7 +146,7 @@
             down_y = -1;
           });
 
-          // Mouse move handler for iMouse uniform
+          // Mouse move handler sends iMouse uniform
           canvas.addEventListener("mousemove", (event) => {
             if (mouse_down) {
               const rect = canvas.getBoundingClientRect(); // Determine canvas position
@@ -107,7 +155,9 @@
               const x = event.clientX - rect.left; // Relative coord X
               const y = event.clientY - rect.top; // Relative coord Y
 
-              update_player_state({ mouse: { x, y, down_x, down_y } }); // pass iMouse values
+              update_player_state({
+                uniforms: { mouse: { x, y, down_x, down_y } },
+              }); // pass iMouse values
             }
           });
 

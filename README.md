@@ -66,20 +66,40 @@ Passes shader code to WASM, if not called then default shader from shaders/shade
 
 Sets param of shader playback.
 
-Default values in state:
+By default state is empty (player is unpaused, all uniforms (except iMouse) are calculated automatically), but it could be set like this:
 
 ```JSON
 {
-    // Param for `iMouse` uniform
-    mouse {
-        x: 0
-        y: 0
-        down_x: 0
-        down_y: 0
-    }
-    pause: false
+    uniforms: {
+        resolution: {
+            width: 1920,
+            height: 1080,
+            pixel_aspect_ratio: 1
+        },
+        time: 3600,
+        time_delta: 0.02,
+        frame: 100,
+        frame_rate: 50,
+        mouse: {
+            x: 0,
+            y: 0,
+            down_x: 0,
+            down_y: 0
+        },
+        date: {
+            year: 2024,
+            month: 10,
+            day: 30,
+            time: 3600
+        }
+    },
+    paused: true
 }
 ```
+
+<i> Once any uniform is set, it would not be calculated automatically until page refresh. Exception is iMouse, it could be set only via update_player_state() </i>
+
+If loaded shader doesn't use some of listed uniforms, then rewriting it will not take effect
 
 ### function stop(state: any): void;
 

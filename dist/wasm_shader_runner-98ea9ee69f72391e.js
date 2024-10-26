@@ -346,6 +346,14 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_deleteProgram_ef8d37545b8ab3ce = function(arg0, arg1) {
         getObject(arg0).deleteProgram(getObject(arg1));
     };
+    imports.wbg.__wbg_drawingBufferWidth_1912a80c46cf88ce = function(arg0) {
+        const ret = getObject(arg0).drawingBufferWidth;
+        return ret;
+    };
+    imports.wbg.__wbg_drawingBufferHeight_ff71d514a59194b0 = function(arg0) {
+        const ret = getObject(arg0).drawingBufferHeight;
+        return ret;
+    };
     imports.wbg.__wbg_devicePixelRatio_5d0556383aa83231 = function(arg0) {
         const ret = getObject(arg0).devicePixelRatio;
         return ret;
@@ -680,14 +688,6 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_addEventListener_4357f9b7b3826784 = function() { return handleError(function (arg0, arg1, arg2, arg3) {
         getObject(arg0).addEventListener(getStringFromWasm0(arg1, arg2), getObject(arg3));
     }, arguments) };
-    imports.wbg.__wbg_drawingBufferWidth_1912a80c46cf88ce = function(arg0) {
-        const ret = getObject(arg0).drawingBufferWidth;
-        return ret;
-    };
-    imports.wbg.__wbg_drawingBufferHeight_ff71d514a59194b0 = function(arg0) {
-        const ret = getObject(arg0).drawingBufferHeight;
-        return ret;
-    };
     imports.wbg.__wbg_attachShader_299671ccaa78592c = function(arg0, arg1, arg2) {
         getObject(arg0).attachShader(getObject(arg1), getObject(arg2));
     };
@@ -716,7 +716,7 @@ function __wbg_get_imports() {
         const ret = makeMutClosure(arg0, arg1, 7, __wbg_adapter_35);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper214 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbindgen_closure_wrapper234 = function(arg0, arg1, arg2) {
         const ret = makeClosure(arg0, arg1, 3, __wbg_adapter_38);
         return addHeapObject(ret);
     };

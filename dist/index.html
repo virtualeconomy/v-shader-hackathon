@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="g35YZuxx7QAcwW9OPR9fKA==">
-import init, * as bindings from '/wasm_shader_runner-6398731463df147a.js';
-const wasm = await init('/wasm_shader_runner-6398731463df147a_bg.wasm');
+<script type="module" nonce="UrLP+BKGnfa3lkva2jaM8g==">
+import init, * as bindings from '/wasm_shader_runner-98ea9ee69f72391e.js';
+const wasm = await init('/wasm_shader_runner-98ea9ee69f72391e_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -33,19 +33,58 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 100vh;
       }
     </style>
-  <link rel="modulepreload" href="/wasm_shader_runner-6398731463df147a.js" crossorigin=anonymous integrity="sha384-VwMEGbyWwuZgGe98R0qqlbwUNXDG7fo7LRg0Wm2HTy2MU+lRLHBEvcCG4/PIBU3L"><link rel="preload" href="/wasm_shader_runner-6398731463df147a_bg.wasm" crossorigin=anonymous integrity="sha384-4/fB7U/G9RerwGdE4z0ib96NYDc0EKwQP6W8A5gOIX2jnXVvLBmEj8CPPKZIjSAE" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/wasm_shader_runner-98ea9ee69f72391e.js" crossorigin=anonymous integrity="sha384-TcSstjpKgBcucxFDazfGb5YWuNjuPbKi5+HNFt/p05Hryfien9sql7PEFZxJJ/nU"><link rel="preload" href="/wasm_shader_runner-98ea9ee69f72391e_bg.wasm" crossorigin=anonymous integrity="sha384-OpiqTRBDdtcCMZfqyF8ia3Maw6Dg49FodO/kffE30ylArBEx4plhvfgFqxc1ZGdh" as="fetch" type="application/wasm"></head>
   <body>
     <div>
-      <textarea
-        id="input-text"
-        rows="20"
-        cols="200"
-        placeholder="Enter your shader code here..."
-      ></textarea>
-      <br />
-      <button id="send-button">Apply shader code</button>
-      <button id="pause-button">Stop animation</button>
-      <button id="lose-context">Test "Lose WebGL context"</button>
+      <div>
+        <textarea
+          id="input-shader-text"
+          rows="20"
+          cols="200"
+          placeholder="Enter your shader code here..."
+        ></textarea>
+        <br />
+        <button id="send-shader-button">Apply shader code</button>
+        <button id="pause-button">Stop animation</button>
+        <button id="lose-context">Test "Lose WebGL context"</button>
+      </div>
+      <div>
+        <textarea
+          id="input-player-state"
+          rows="20"
+          cols="200"
+          placeholder="Enter your shader code here..."
+        >
+{
+    "uniforms": {
+        "resolution": {
+            "width": 1920,
+            "height": 1080,
+            "pixel_aspect_ratio": 1
+        },
+        "time": 3600,
+        "time_delta": 0.02,
+        "frame": 100,
+        "frame_rate": 50,
+        "mouse": {
+            "x": 0,
+            "y": 0,
+            "down_x": 0,
+            "down_y": 0
+        },
+        "date": {
+            "year": 2024,
+            "month": 10,
+            "day": 30,
+            "time": 3600
+        }
+    },
+    "paused": true
+}
+        </textarea>
+        <br />
+        <button id="send-player-state">Send custom player state</button>
+      <div>
 
       <script type="module">
         import {
@@ -53,23 +92,31 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           update_player_state,
           play,
           stop,
-        } from "/wasm_shader_runner-6398731463df147a.js";
+        } from "/wasm_shader_runner-98ea9ee69f72391e.js";
 
-        const inputText = document.getElementById("input-text");
-        const sendButton = document.getElementById("send-button");
+        const inputShaderText = document.getElementById("input-shader-text");
+        const sendShaderButton = document.getElementById("send-shader-button");
         const pauseButton = document.getElementById("pause-button");
+        const inputPlayerState = document.getElementById("input-player-state");
+        const sendPlayerState = document.getElementById("send-player-state");
+
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
-        inputText.value = "void mainImage(out vec4 fragColor, in vec2 fragCoord)\n\
+        inputShaderText.value = "void mainImage(out vec4 fragColor, in vec2 fragCoord)\n\
 {\n\
   fragColor = vec4(sin(fragCoord.x/iResolution.x+iTime)/2.0+0.5, sin(fragCoord.y/iResolution.y+iTime)/2.0+0.5, cos(fragCoord.x/iResolution.x+fragCoord.y/iResolution.y+iTime)/2.0+0.5, 1.0);\n\
 }";
 
-        sendButton.addEventListener("click", () => {
-          const text = inputText.value;
-          set_fragment_shader(text);
+        sendShaderButton.addEventListener("click", () => {
+          set_fragment_shader(inputShaderText.value);
           console.log("Shader text applied");
         });
+
+        sendPlayerState.addEventListener("click", () => {
+          let json = JSON.parse(inputPlayerState.value);
+          console.log(json);
+          update_player_state(JSON.parse(inputPlayerState.value));
+        })
 
         let paused = false;
         pauseButton.addEventListener("click", () => {
@@ -81,6 +128,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             pauseButton.innerText = "Resume animation";
           }
           paused = !paused;
+          // play()/stop() can be replaced by update_player_state({paused});
         });
 
         addEventListener("TrunkApplicationStarted", (event) => {
@@ -112,7 +160,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             down_y = -1;
           });
 
-          // Mouse move handler for iMouse uniform
+          // Mouse move handler sends iMouse uniform
           canvas.addEventListener("mousemove", (event) => {
             if (mouse_down) {
               const rect = canvas.getBoundingClientRect(); // Determine canvas position
@@ -121,7 +169,9 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
               const x = event.clientX - rect.left; // Relative coord X
               const y = event.clientY - rect.top; // Relative coord Y
 
-              update_player_state({ mouse: { x, y, down_x, down_y } }); // pass iMouse values
+              update_player_state({
+                uniforms: { mouse: { x, y, down_x, down_y } },
+              }); // pass iMouse values
             }
           });
 

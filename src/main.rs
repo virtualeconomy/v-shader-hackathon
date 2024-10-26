@@ -12,6 +12,13 @@ use wasm_bindgen::{
 };
 use web_sys::{window, CustomEvent, EventTarget};
 
+#[derive(Clone, Copy, Deserialize, Debug)]
+struct ResolutionUniform {
+    width: f32,
+    height: f32,
+    pixel_aspect_ratio: f32,
+}
+
 #[derive(Clone, Copy, Deserialize, Debug, Default)]
 struct MouseUniform {
     x: f32,
@@ -20,10 +27,29 @@ struct MouseUniform {
     down_y: f32,
 }
 
+#[derive(Clone, Copy, Deserialize, Debug)]
+struct DateUniform {
+    year: f32,
+    month: f32,
+    day: f32,
+    time: f32,
+}
+
+#[derive(Clone, Copy, Deserialize, Debug, Default)]
+struct Uniforms {
+    resolution: Option<ResolutionUniform>,
+    time: Option<f32>,
+    time_delta: Option<f32>,
+    frame: Option<f32>,
+    frame_rate: Option<f32>,
+    mouse: Option<MouseUniform>,
+    date: Option<DateUniform>,
+}
+
 #[derive(Clone, Copy, Deserialize, Debug, Default)]
 struct PlayerState {
-    mouse: Option<MouseUniform>,
     paused: Option<bool>,
+    uniforms: Option<Uniforms>,
 }
 
 static PLAYER_STATE_STORAGE: OnceLock<Mutex<PlayerState>> = OnceLock::new();
@@ -55,9 +81,23 @@ pub fn set_fragment_shader(new_shader_code: &str) {
 pub fn update_player_state(state: JsValue) {
     match serde_wasm_bindgen::from_value::<PlayerState>(state) {
         Ok(state) => {
+            gl::info!("Got player state: {:#?}", state);
             if let Some(mutex) = PLAYER_STATE_STORAGE.get() {
                 if let Ok(mut player_state) = mutex.lock() {
-                    player_state.mouse = state.mouse.or(player_state.mouse);
+                    if let Some(uniforms) = &mut player_state.uniforms {
+                        if let Some(new_uniforms) = state.uniforms {
+                            uniforms.resolution = new_uniforms.resolution.or(uniforms.resolution);
+                            uniforms.time = new_uniforms.time.or(uniforms.time);
+                            uniforms.time_delta = new_uniforms.time_delta.or(uniforms.time_delta);
+                            uniforms.frame = new_uniforms.frame.or(uniforms.frame);
+                            uniforms.frame_rate = new_uniforms.frame_rate.or(uniforms.frame_rate);
+                            uniforms.mouse = new_uniforms.mouse.or(uniforms.mouse);
+                            uniforms.date = new_uniforms.date.or(uniforms.date);
+                        }
+                    } else {
+                        player_state.uniforms = state.uniforms;
+                    }
+
                     player_state.paused = state.paused.or(player_state.paused);
                 } else {
                     gl::error!("Failed to lock player state mutex");
@@ -255,6 +295,8 @@ fn run() -> Result<(), gl::WebglError> {
                 }
                 RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
             }
+
+            // Disable render if paused
             player_state = if let Some(player_state_mutex) = PLAYER_STATE_STORAGE.get() {
                 player_state_mutex.try_lock().as_deref().cloned().ok()
             } else {
@@ -262,55 +304,132 @@ fn run() -> Result<(), gl::WebglError> {
             }
             .unwrap_or(player_state);
             if player_state.paused == Some(true) {
-                // Do nothing if is paused
+                // Do nothing
                 return true;
             }
-            gl.uniform1f(time_loc.as_ref(), t as f32);
-            if let Some(window) = web_sys::window() {
+
+            // iResolution
+            if let Some(Uniforms {
+                resolution: Some(resolution),
+                ..
+            }) = player_state.uniforms
+            {
                 gl.uniform3f(
                     resolution_loc.as_ref(),
-                    gl.drawing_buffer_width() as f32,
-                    gl.drawing_buffer_height() as f32,
-                    window.device_pixel_ratio() as f32,
+                    resolution.width,
+                    resolution.height,
+                    resolution.pixel_aspect_ratio,
                 );
             } else {
-                // I hope aspect ratio is not so impotant
                 gl.uniform3f(
                     resolution_loc.as_ref(),
                     gl.drawing_buffer_width() as f32,
                     gl.drawing_buffer_height() as f32,
-                    1f32,
+                    if let Some(window) = web_sys::window() {
+                        window.device_pixel_ratio() as f32
+                    } else {
+                        1.0
+                    },
                 );
-            }
+            };
 
-            let time_dif = if last_time == 0f64 {
+            // iTime
+            gl.uniform1f(
+                time_loc.as_ref(),
+                if let Some(Uniforms {
+                    time: Some(fixed_time),
+                    ..
+                }) = player_state.uniforms
+                {
+                    fixed_time
+                } else {
+                    t as f32
+                },
+            );
+
+            // iTimeDelta
+            let time_delta = if let Some(Uniforms {
+                time_delta: Some(fixed_time_delta),
+                ..
+            }) = player_state.uniforms
+            {
+                fixed_time_delta
+            } else if last_time == 0f64 {
                 0f32
             } else {
                 (t - last_time) as f32
             };
-            gl.uniform1f(time_delta_loc.as_ref(), time_dif);
+            gl.uniform1f(time_delta_loc.as_ref(), time_delta);
             last_time = t;
-            gl.uniform1f(frame_loc.as_ref(), frame);
+
+            // iFrame
+            gl.uniform1f(
+                frame_loc.as_ref(),
+                if let Some(Uniforms {
+                    frame: Some(fixed_frame),
+                    ..
+                }) = player_state.uniforms
+                {
+                    fixed_frame
+                } else {
+                    frame
+                },
+            );
             frame += 1f32;
-            gl.uniform1f(frame_rate_loc.as_ref(), 1f32 / time_dif);
-            if let Some(MouseUniform {
-                x,
-                y,
-                down_x,
-                down_y,
-            }) = player_state.mouse
-            // Don't wait while rendering, update mouse next rendering
+
+            // iFrameRate
+            gl.uniform1f(
+                frame_rate_loc.as_ref(),
+                if let Some(Uniforms {
+                    frame_rate: Some(fixed_frame_rate),
+                    ..
+                }) = player_state.uniforms
+                {
+                    fixed_frame_rate
+                } else {
+                    1f32 / time_delta
+                },
+            );
+
+            // iMouse
+            if let Some(Uniforms {
+                mouse:
+                    Some(MouseUniform {
+                        x,
+                        y,
+                        down_x,
+                        down_y,
+                    }),
+                ..
+            }) = player_state.uniforms
             {
                 gl.uniform4f(mouse_loc.as_ref(), x, y, down_x, down_y);
             }
-            let date = Date::new_0();
-            gl.uniform4f(
-                date_loc.as_ref(),
-                date.get_full_year() as f32,
-                date.get_month() as f32,
-                date.get_day() as f32,
-                (date.get_hours() * 3600 + date.get_minutes() * 60 + date.get_seconds()) as f32,
-            );
+
+            // iDate
+            if let Some(Uniforms {
+                date: Some(replaced_date),
+                ..
+            }) = player_state.uniforms
+            {
+                gl.uniform4f(
+                    date_loc.as_ref(),
+                    replaced_date.year,
+                    replaced_date.month,
+                    replaced_date.day,
+                    replaced_date.time,
+                );
+            } else {
+                let date = Date::new_0();
+                gl.uniform4f(
+                    date_loc.as_ref(),
+                    date.get_full_year() as f32,
+                    date.get_month() as f32,
+                    date.get_day() as f32,
+                    (date.get_hours() * 3600 + date.get_minutes() * 60 + date.get_seconds()) as f32,
+                );
+            };
+
             // Draw points
             gl.draw_arrays(GL::TRIANGLE_STRIP, 0, 4);
             true
