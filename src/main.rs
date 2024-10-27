@@ -47,8 +47,14 @@ struct Uniforms {
 }
 
 #[derive(Clone, Copy, Deserialize, Debug, Default)]
-struct PlayerState {
+struct Playback {
     paused: Option<bool>,
+    speed: Option<f32>,
+}
+
+#[derive(Clone, Copy, Deserialize, Debug, Default)]
+struct PlayerState {
+    playback: Option<Playback>,
     uniforms: Option<Uniforms>,
 }
 
@@ -98,7 +104,14 @@ pub fn update_player_state(state: JsValue) {
                         player_state.uniforms = state.uniforms;
                     }
 
-                    player_state.paused = state.paused.or(player_state.paused);
+                    if let Some(playback) = &mut player_state.playback {
+                        if let Some(new_playback) = state.playback {
+                            playback.paused = new_playback.paused.or(playback.paused);
+                            playback.speed = new_playback.speed.or(playback.speed);
+                        }
+                    } else {
+                        player_state.playback = state.playback;
+                    }
                 } else {
                     gl::error!("Failed to lock player state mutex");
                 }
@@ -106,7 +119,7 @@ pub fn update_player_state(state: JsValue) {
                 report_error("Failed to init mutex: don't change player state in separate threads");
             }
         }
-        Err(error) => report_error(&format!("Unkown player state format: {:?}", error)),
+        Err(error) => report_error(&format!("Unkown player state format: {error:?}")),
     }
 }
 
@@ -123,13 +136,23 @@ pub fn stop() {
 fn set_paused(value: bool) {
     if let Some(mutex) = PLAYER_STATE_STORAGE.get() {
         if let Ok(mut player_state) = mutex.lock() {
-            player_state.paused = Some(value);
+            if let Some(playback) = &mut player_state.playback {
+                playback.paused = Some(value);
+            } else {
+                player_state.playback = Some(Playback {
+                    paused: Some(value),
+                    ..Default::default()
+                });
+            }
         } else {
             gl::error!("Failed to lock player state mutex");
         }
     } else if PLAYER_STATE_STORAGE
         .set(Mutex::new(PlayerState {
-            paused: Some(value),
+            playback: Some(Playback {
+                paused: Some(value),
+                ..Default::default()
+            }),
             ..Default::default()
         }))
         .is_err()
@@ -158,7 +181,7 @@ pub fn report_error(message: &str) {
     };
 
     if let Err(error) = target.dispatch_event(&event) {
-        gl::error!("Failed to dispatch event {:?}", error)
+        gl::error!("Failed to dispatch event {error:?}");
     }
 }
 
@@ -173,13 +196,13 @@ uniform int	iFrame; // image/buffer	Current frame
 uniform float	iFrameRate; // image/buffer	Number of frames rendered per second
 uniform vec4	iMouse; // image/buffer	xy = current pixel coords (if LMB is down). zw = click pixel
 uniform vec4	iDate; // image/buffer/sound	Year, month, day, time in seconds in .xyzw
-{}
+{shadertoy_code}
 in vec2 vUv;
 out vec4 frag_color;
 
 void main() {{
     mainImage(frag_color, vUv * iResolution.xy);
-}}", shadertoy_code)
+}}")
 }
 
 fn get_shader() -> Option<String> {
@@ -187,7 +210,7 @@ fn get_shader() -> Option<String> {
 }
 
 fn add_event_listener<F: IntoWasmClosure<dyn FnMut(E)> + 'static, E: FromWasmAbi + 'static>(
-    event_target: EventTarget,
+    event_target: &EventTarget,
     event_type: &str,
     f: F,
 ) {
@@ -200,12 +223,12 @@ fn add_event_listener<F: IntoWasmClosure<dyn FnMut(E)> + 'static, E: FromWasmAbi
 }
 
 fn run() -> Result<(), gl::WebglError> {
-    gl::browser::setup(Default::default());
+    gl::browser::setup(minwebgl::browser::Config::default());
     let canvas = gl::canvas::retrieve_or_make()?;
     let gl = gl::context::from_canvas(&canvas)?;
 
     add_event_listener(
-        canvas.clone().into(),
+        &canvas.clone().into(),
         "webglcontextlost",
         move |event: web_sys::Event| {
             gl::error!("Canvas lost WebGL2 context");
@@ -215,7 +238,7 @@ fn run() -> Result<(), gl::WebglError> {
     );
 
     add_event_listener(
-        canvas.clone().into(),
+        &canvas.clone().into(),
         "webglcontextrestored",
         move |_: web_sys::Event| {
             gl::info!("Canvas restored WebGL2 context");
@@ -232,7 +255,8 @@ fn run() -> Result<(), gl::WebglError> {
     gl.use_program(Some(&program));
     RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
 
-    let mut last_time = 0f64;
+    let mut last_real_time = 0f64;
+    let mut last_playback_time = 0f64;
     let mut frame = 0f32;
     let mut reload_webgl2_context = false;
     let mut player_state = PlayerState::default();
@@ -290,7 +314,7 @@ fn run() -> Result<(), gl::WebglError> {
                         gl::info!("shader reloaded");
                     }
                     Err(error) => {
-                        report_error(&format!("Shader compilation error: {}", error));
+                        report_error(&format!("Shader compilation error: {error}"));
                     }
                 }
                 RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
@@ -303,8 +327,12 @@ fn run() -> Result<(), gl::WebglError> {
                 None
             }
             .unwrap_or(player_state);
-            if player_state.paused == Some(true) {
-                // Do nothing
+            if let Some(Playback {
+                paused: Some(true), ..
+            }) = player_state.playback
+            {
+                // Do nothing, except update last_real_time to prevent accumulation of time_delta
+                last_real_time = t;
                 return true;
             }
 
@@ -333,6 +361,30 @@ fn run() -> Result<(), gl::WebglError> {
                 );
             };
 
+            // This code is designed to seamlessly continue playback after `Resume`
+            let (time, time_delta) = if last_real_time == 0.0 {
+                // First frame, just init
+                last_real_time = t;
+                last_playback_time = t;
+                (last_playback_time, 0.0)
+            } else {
+                let real_time_delta = t - last_real_time;
+                let playback_time_delta = real_time_delta
+                    * f64::from(
+                        if let Some(Playback {
+                            speed: Some(speed), ..
+                        }) = player_state.playback
+                        {
+                            speed
+                        } else {
+                            1.0
+                        },
+                    );
+                last_real_time = t;
+                last_playback_time += playback_time_delta;
+                (last_playback_time, playback_time_delta)
+            };
+
             // iTime
             gl.uniform1f(
                 time_loc.as_ref(),
@@ -343,7 +395,7 @@ fn run() -> Result<(), gl::WebglError> {
                 {
                     fixed_time
                 } else {
-                    t as f32
+                    time as f32
                 },
             );
 
@@ -354,13 +406,11 @@ fn run() -> Result<(), gl::WebglError> {
             }) = player_state.uniforms
             {
                 fixed_time_delta
-            } else if last_time == 0f64 {
-                0f32
             } else {
-                (t - last_time) as f32
+                time_delta as f32
             };
             gl.uniform1f(time_delta_loc.as_ref(), time_delta);
-            last_time = t;
+            last_real_time = t;
 
             // iFrame
             gl.uniform1f(
@@ -442,5 +492,5 @@ fn run() -> Result<(), gl::WebglError> {
 }
 
 fn main() {
-    run().unwrap()
+    run().unwrap();
 }

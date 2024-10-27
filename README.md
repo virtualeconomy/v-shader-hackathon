@@ -76,8 +76,8 @@ By default state is empty (player is unpaused, all uniforms (except iMouse) are 
             height: 1080,
             pixel_aspect_ratio: 1
         },
-        time: 3600,
-        time_delta: 0.02,
+        time: 3600, // real time at start, but dependent from pause and speed
+        time_delta: 0.02,   // dependent from speed
         frame: 100,
         frame_rate: 50,
         mouse: {
@@ -90,10 +90,13 @@ By default state is empty (player is unpaused, all uniforms (except iMouse) are 
             year: 2024,
             month: 10,
             day: 30,
-            time: 3600
+            time: 3600  // real time, doesn't depend from pause or speed
         }
     },
-    paused: true
+    playback: {
+        paused: true,   // Freezes iTime uniform and stops render
+        speed: 1.0  // Speed can be negative (in this case iTime decreases and playback is backward) and zero (in this case iTime freezes, but this option doesn't stop render)
+    }
 }
 ```
 

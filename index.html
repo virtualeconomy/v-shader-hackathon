@@ -15,6 +15,7 @@
         margin: 0px;
         width: 100%;
         background-color: black;
+        color: white;
       }
       canvas {
         background-color: black;
@@ -26,6 +27,7 @@
   <body>
     <div>
       <div>
+        <br />
         <textarea
           id="input-shader-text"
           rows="20"
@@ -35,9 +37,13 @@
         <br />
         <button id="send-shader-button">Apply shader code</button>
         <button id="pause-button">Stop animation</button>
+        <label for="speed">Playback speed:</label>
+        <input type="range" id="speed" name="speed" min="-2" max="2" step="0.1" value="1">
+        <output id="speed-text">1</output>
         <button id="lose-context">Test "Lose WebGL context"</button>
       </div>
       <div>
+        <br />
         <textarea
           id="input-player-state"
           rows="20"
@@ -68,7 +74,10 @@
             "time": 3600
         }
     },
-    "paused": true
+    "playback": {
+        "paused": true,
+        "speed": 1.0
+    }
 }
         </textarea>
         <br />
@@ -88,6 +97,8 @@
         const pauseButton = document.getElementById("pause-button");
         const inputPlayerState = document.getElementById("input-player-state");
         const sendPlayerState = document.getElementById("send-player-state");
+        const speedInput = document.getElementById("speed");
+        const speedText = document.getElementById("speed-text");
 
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
@@ -114,8 +125,13 @@
             pauseButton.innerText = "Resume animation";
           }
           paused = !paused;
-          // play()/stop() can be replaced by update_player_state({paused});
+          // play()/stop() can be replaced by update_player_state({playback:{paused}});
         });
+
+        speedInput.addEventListener("input", () => {
+          speedText.value = speedInput.value;
+          update_player_state({playback:{speed: parseFloat(speedInput.value)}});
+        })
 
         addEventListener("TrunkApplicationStarted", (event) => {
           // Code sample for error reporting from wasm (for example about shader compilation errors)

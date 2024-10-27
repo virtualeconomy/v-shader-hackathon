@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="UrLP+BKGnfa3lkva2jaM8g==">
-import init, * as bindings from '/wasm_shader_runner-98ea9ee69f72391e.js';
-const wasm = await init('/wasm_shader_runner-98ea9ee69f72391e_bg.wasm');
+<script type="module" nonce="bitTL6myx7YxWBIJ/GTT5w==">
+import init, * as bindings from '/wasm_shader_runner-64d42c71bf391d6a.js';
+const wasm = await init('/wasm_shader_runner-64d42c71bf391d6a_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -26,6 +26,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         margin: 0px;
         width: 100%;
         background-color: black;
+        color: white;
       }
       canvas {
         background-color: black;
@@ -33,10 +34,11 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 100vh;
       }
     </style>
-  <link rel="modulepreload" href="/wasm_shader_runner-98ea9ee69f72391e.js" crossorigin=anonymous integrity="sha384-TcSstjpKgBcucxFDazfGb5YWuNjuPbKi5+HNFt/p05Hryfien9sql7PEFZxJJ/nU"><link rel="preload" href="/wasm_shader_runner-98ea9ee69f72391e_bg.wasm" crossorigin=anonymous integrity="sha384-OpiqTRBDdtcCMZfqyF8ia3Maw6Dg49FodO/kffE30ylArBEx4plhvfgFqxc1ZGdh" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/wasm_shader_runner-64d42c71bf391d6a.js" crossorigin=anonymous integrity="sha384-taqi2R8tjL9O1wAWXPXx6mPWwHsli682NqoiFveGV+16GyBMZV+dtTs65Sehvd2s"><link rel="preload" href="/wasm_shader_runner-64d42c71bf391d6a_bg.wasm" crossorigin=anonymous integrity="sha384-80KfGAw4zJw+QYh3e92/+sVROWCNSFB2U/aZwR01VKZKCram3AAUIoHpfS1ZFjoR" as="fetch" type="application/wasm"></head>
   <body>
     <div>
       <div>
+        <br />
         <textarea
           id="input-shader-text"
           rows="20"
@@ -46,9 +48,13 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         <br />
         <button id="send-shader-button">Apply shader code</button>
         <button id="pause-button">Stop animation</button>
+        <label for="speed">Playback speed:</label>
+        <input type="range" id="speed" name="speed" min="-2" max="2" step="0.1" value="1">
+        <output id="speed-text">1</output>
         <button id="lose-context">Test "Lose WebGL context"</button>
       </div>
       <div>
+        <br />
         <textarea
           id="input-player-state"
           rows="20"
@@ -79,7 +85,10 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             "time": 3600
         }
     },
-    "paused": true
+    "playback": {
+        "paused": true,
+        "speed": 1.0
+    }
 }
         </textarea>
         <br />
@@ -92,13 +101,15 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           update_player_state,
           play,
           stop,
-        } from "/wasm_shader_runner-98ea9ee69f72391e.js";
+        } from "/wasm_shader_runner-64d42c71bf391d6a.js";
 
         const inputShaderText = document.getElementById("input-shader-text");
         const sendShaderButton = document.getElementById("send-shader-button");
         const pauseButton = document.getElementById("pause-button");
         const inputPlayerState = document.getElementById("input-player-state");
         const sendPlayerState = document.getElementById("send-player-state");
+        const speedInput = document.getElementById("speed");
+        const speedText = document.getElementById("speed-text");
 
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
@@ -128,8 +139,13 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             pauseButton.innerText = "Resume animation";
           }
           paused = !paused;
-          // play()/stop() can be replaced by update_player_state({paused});
+          // play()/stop() can be replaced by update_player_state({playback:{paused}});
         });
+
+        speedInput.addEventListener("input", () => {
+          speedText.value = speedInput.value;
+          update_player_state({playback:{speed: parseFloat(speedInput.value)}});
+        })
 
         addEventListener("TrunkApplicationStarted", (event) => {
           // Code sample for error reporting from wasm (for example about shader compilation errors)
