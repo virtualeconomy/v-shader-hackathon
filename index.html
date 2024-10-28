@@ -92,6 +92,12 @@
           stop,
         } from "/dynamic_javascript_filename.js";
 
+        // Make functions accessible from browser console
+        globalThis.set_fragment_shader = set_fragment_shader;
+        globalThis.update_player_state = update_player_state;
+        globalThis.play = play;
+        globalThis.stop = stop;
+
         const inputShaderText = document.getElementById("input-shader-text");
         const sendShaderButton = document.getElementById("send-shader-button");
         const pauseButton = document.getElementById("pause-button");
@@ -99,7 +105,6 @@
         const sendPlayerState = document.getElementById("send-player-state");
         const speedInput = document.getElementById("speed");
         const speedText = document.getElementById("speed-text");
-
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
         inputShaderText.value = "default_shader_code_text";

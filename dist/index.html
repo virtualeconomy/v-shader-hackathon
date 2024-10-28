@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="bitTL6myx7YxWBIJ/GTT5w==">
+<script type="module" nonce="A63ZjneNfD5gjfsnZvF5Jw==">
 import init, * as bindings from '/wasm_shader_runner-64d42c71bf391d6a.js';
 const wasm = await init('/wasm_shader_runner-64d42c71bf391d6a_bg.wasm');
 
@@ -103,6 +103,12 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           stop,
         } from "/wasm_shader_runner-64d42c71bf391d6a.js";
 
+        // Make functions accessible from browser console
+        globalThis.set_fragment_shader = set_fragment_shader;
+        globalThis.update_player_state = update_player_state;
+        globalThis.play = play;
+        globalThis.stop = stop;
+
         const inputShaderText = document.getElementById("input-shader-text");
         const sendShaderButton = document.getElementById("send-shader-button");
         const pauseButton = document.getElementById("pause-button");
@@ -110,7 +116,6 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         const sendPlayerState = document.getElementById("send-player-state");
         const speedInput = document.getElementById("speed");
         const speedText = document.getElementById("speed-text");
-
 
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
         inputShaderText.value = "void mainImage(out vec4 fragColor, in vec2 fragCoord)\n\
