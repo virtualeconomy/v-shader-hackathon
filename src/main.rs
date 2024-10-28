@@ -10,7 +10,7 @@ use wasm_bindgen::{
     prelude::wasm_bindgen,
     JsCast, JsValue,
 };
-use web_sys::{window, CustomEvent, EventTarget};
+use web_sys::{window, CustomEvent, Element, EventTarget};
 
 #[derive(Clone, Copy, Deserialize, Debug)]
 struct ResolutionUniform {
@@ -62,6 +62,7 @@ static PLAYER_STATE_STORAGE: OnceLock<Mutex<PlayerState>> = OnceLock::new();
 static FRAGMENT_SHADER_STORAGE: OnceLock<Mutex<String>> = OnceLock::new();
 static RELOAD_FRAGMENT_SHADER: AtomicBool = AtomicBool::new(false);
 static LOST_WEBGL2_CONTEXT: AtomicBool = AtomicBool::new(false);
+static MOUSE_DOWN: AtomicBool = AtomicBool::new(false);
 
 #[wasm_bindgen]
 pub fn set_fragment_shader(new_shader_code: &str) {
@@ -87,7 +88,6 @@ pub fn set_fragment_shader(new_shader_code: &str) {
 pub fn update_player_state(state: JsValue) {
     match serde_wasm_bindgen::from_value::<PlayerState>(state) {
         Ok(state) => {
-            gl::info!("Got player state: {:#?}", state);
             if let Some(mutex) = PLAYER_STATE_STORAGE.get() {
                 if let Ok(mut player_state) = mutex.lock() {
                     if let Some(uniforms) = &mut player_state.uniforms {
@@ -222,6 +222,34 @@ fn add_event_listener<F: IntoWasmClosure<dyn FnMut(E)> + 'static, E: FromWasmAbi
     closure.forget();
 }
 
+fn update_mouse_uniform(update: &dyn Fn(Option<MouseUniform>) -> Option<MouseUniform>) {
+    if let Some(mutex) = PLAYER_STATE_STORAGE.get() {
+        if let Ok(mut player_state) = mutex.lock() {
+            if let Some(uniforms) = &mut player_state.uniforms {
+                uniforms.mouse = update(uniforms.mouse);
+            } else {
+                player_state.uniforms = Some(Uniforms {
+                    mouse: update(None),
+                    ..Default::default()
+                });
+            }
+        } else {
+            gl::error!("Failed to lock player state mutex");
+        }
+    } else if PLAYER_STATE_STORAGE
+        .set(Mutex::new(PlayerState {
+            uniforms: Some(Uniforms {
+                mouse: update(None),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }))
+        .is_err()
+    {
+        report_error("Failed to init mutex: don't change player state in separate threads");
+    }
+}
+
 fn run() -> Result<(), gl::WebglError> {
     gl::browser::setup(minwebgl::browser::Config::default());
     let canvas = gl::canvas::retrieve_or_make()?;
@@ -243,6 +271,67 @@ fn run() -> Result<(), gl::WebglError> {
         move |_: web_sys::Event| {
             gl::info!("Canvas restored WebGL2 context");
             LOST_WEBGL2_CONTEXT.store(false, Ordering::Relaxed);
+        },
+    );
+
+    let canvas_clone = canvas.clone();
+    add_event_listener(
+        &canvas.clone().into(),
+        "mousedown",
+        move |mouse_event: web_sys::MouseEvent| {
+            let rect = canvas_clone
+                .unchecked_ref::<Element>()
+                .get_bounding_client_rect();
+            let x = mouse_event.client_x() as f32 - rect.left() as f32;
+            let y = mouse_event.client_y() as f32 - rect.top() as f32;
+            update_mouse_uniform(&|_| {
+                Some(MouseUniform {
+                    x,
+                    y,
+                    down_x: x,
+                    down_y: y,
+                })
+            });
+            MOUSE_DOWN.store(true, Ordering::Relaxed);
+        },
+    );
+
+    add_event_listener(
+        &canvas.clone().into(),
+        "mouseup",
+        move |_: web_sys::MouseEvent| {
+            MOUSE_DOWN.store(false, Ordering::Relaxed);
+        },
+    );
+
+    let canvas_clone = canvas.clone();
+    add_event_listener(
+        &canvas.clone().into(),
+        "mousemove",
+        move |mouse_event: web_sys::MouseEvent| {
+            if MOUSE_DOWN.load(Ordering::Relaxed) {
+                let rect = canvas_clone
+                    .unchecked_ref::<Element>()
+                    .get_bounding_client_rect();
+                let x = mouse_event.client_x() as f32 - rect.left() as f32;
+                let y = mouse_event.client_y() as f32 - rect.top() as f32;
+                update_mouse_uniform(&|old_uniform| {
+                    Some(if let Some(old_uniform) = old_uniform {
+                        MouseUniform {
+                            x,
+                            y,
+                            ..old_uniform
+                        }
+                    } else {
+                        MouseUniform {
+                            x,
+                            y,
+                            down_x: x,
+                            down_y: y,
+                        }
+                    })
+                });
+            }
         },
     );
 

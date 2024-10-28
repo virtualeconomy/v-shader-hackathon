@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="A63ZjneNfD5gjfsnZvF5Jw==">
-import init, * as bindings from '/wasm_shader_runner-64d42c71bf391d6a.js';
-const wasm = await init('/wasm_shader_runner-64d42c71bf391d6a_bg.wasm');
+<script type="module" nonce="BKGVJxLuUHEMekV3rr6nOA==">
+import init, * as bindings from '/wasm_shader_runner-c799461733e21bf9.js';
+const wasm = await init('/wasm_shader_runner-c799461733e21bf9_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -34,7 +34,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 100vh;
       }
     </style>
-  <link rel="modulepreload" href="/wasm_shader_runner-64d42c71bf391d6a.js" crossorigin=anonymous integrity="sha384-taqi2R8tjL9O1wAWXPXx6mPWwHsli682NqoiFveGV+16GyBMZV+dtTs65Sehvd2s"><link rel="preload" href="/wasm_shader_runner-64d42c71bf391d6a_bg.wasm" crossorigin=anonymous integrity="sha384-80KfGAw4zJw+QYh3e92/+sVROWCNSFB2U/aZwR01VKZKCram3AAUIoHpfS1ZFjoR" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/wasm_shader_runner-c799461733e21bf9.js" crossorigin=anonymous integrity="sha384-KFspRztdGVdKt3dH7Ih/mKaIhqKjanL5T+kPkdTAzia2tqYRVaFuIMqKJvcX3rmG"><link rel="preload" href="/wasm_shader_runner-c799461733e21bf9_bg.wasm" crossorigin=anonymous integrity="sha384-Y0fvaGBxr9bUejn+YmScWUTv9nwcc9vRzX/zP/XY0hZgh/ZfIgk27g/hkew+h9pP" as="fetch" type="application/wasm"></head>
   <body>
     <div>
       <div>
@@ -96,12 +96,13 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       <div>
 
       <script type="module">
+        // This code contains API calls, uses html controls to show how to use this API, and contains test code to ensure that wasm is not prone to failure.
         import {
           set_fragment_shader,
           update_player_state,
           play,
           stop,
-        } from "/wasm_shader_runner-64d42c71bf391d6a.js";
+        } from "/wasm_shader_runner-c799461733e21bf9.js";
 
         // Make functions accessible from browser console
         globalThis.set_fragment_shader = set_fragment_shader;
@@ -109,6 +110,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         globalThis.play = play;
         globalThis.stop = stop;
 
+        // Get elements for futher manipulations
         const inputShaderText = document.getElementById("input-shader-text");
         const sendShaderButton = document.getElementById("send-shader-button");
         const pauseButton = document.getElementById("pause-button");
@@ -123,23 +125,25 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
   fragColor = vec4(sin(fragCoord.x/iResolution.x+iTime)/2.0+0.5, sin(fragCoord.y/iResolution.y+iTime)/2.0+0.5, cos(fragCoord.x/iResolution.x+fragCoord.y/iResolution.y+iTime)/2.0+0.5, 1.0);\n\
 }";
 
+        // Apply new shader, could be done multiple times during one session
         sendShaderButton.addEventListener("click", () => {
           set_fragment_shader(inputShaderText.value);
           console.log("Shader text applied");
         });
 
+        // For the purpose of testing, sends json composed by the tester
         sendPlayerState.addEventListener("click", () => {
-          let json = JSON.parse(inputPlayerState.value);
-          console.log(json);
           update_player_state(JSON.parse(inputPlayerState.value));
         })
 
         let paused = false;
         pauseButton.addEventListener("click", () => {
           if (paused) {
+            // Restores the animation by restoring the rendering, the animation can still be frozen if the animation speed is zero
             play();
             pauseButton.innerText = "Stop animation";
           } else {
+            // Stops animation by stopping render
             stop();
             pauseButton.innerText = "Resume animation";
           }
@@ -147,6 +151,8 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           // play()/stop() can be replaced by update_player_state({playback:{paused}});
         });
 
+        // range input is used for controlling animation speed in range of -2..2, but API allows to set any float value for speed
+        // negative value for reverse animation, zero speed will freeze the animation without turning off rendering
         speedInput.addEventListener("input", () => {
           speedText.value = speedInput.value;
           update_player_state({playback:{speed: parseFloat(speedInput.value)}});
@@ -155,47 +161,12 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         addEventListener("TrunkApplicationStarted", (event) => {
           // Code sample for error reporting from wasm (for example about shader compilation errors)
           addEventListener("WasmErrorEvent", (event) => {
+            // the `alert` was used for maximum visibility, the main thing is that the API returns a string with an error in the event without binding to the notification method
             alert("Wasm reported error: " + event.detail);
           });
 
-          // Code sample for passing mouse coordinates to iMouse uniform
-          // uniform vec4	iMouse; // image/buffer	xy = current pixel coords (if LMB is down). zw = click pixel
-          const canvas = document.querySelector("canvas");
-
-          let mouse_down = false;
-          let down_x = -1;
-          let down_y = -1;
-
-          // Save click pixel coords
-          canvas.addEventListener("mousedown", (event) => {
-            const rect = canvas.getBoundingClientRect();
-
-            mouse_down = true;
-            down_x = event.clientX - rect.left;
-            down_y = event.clientY - rect.top;
-          });
-
-          canvas.addEventListener("mouseup", (event) => {
-            mouse_down = false;
-            down_x = -1;
-            down_y = -1;
-          });
-
-          // Mouse move handler sends iMouse uniform
-          canvas.addEventListener("mousemove", (event) => {
-            if (mouse_down) {
-              const rect = canvas.getBoundingClientRect(); // Determine canvas position
-
-              // Relative to canvas coords
-              const x = event.clientX - rect.left; // Relative coord X
-              const y = event.clientY - rect.top; // Relative coord Y
-
-              update_player_state({
-                uniforms: { mouse: { x, y, down_x, down_y } },
-              }); // pass iMouse values
-            }
-          });
-
+          // this code is for testing purposes only, to simulate loss of context to ensure no crashes
+          // should be skipped in production
           const loseContextButton = document.getElementById("lose-context");
           loseContextButton.addEventListener("click", () => {
             const canvas = document.querySelector("canvas");

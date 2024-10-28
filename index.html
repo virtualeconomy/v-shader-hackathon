@@ -85,6 +85,7 @@
       <div>
 
       <script type="module">
+        // This code contains API calls, uses html controls to show how to use this API, and contains test code to ensure that wasm is not prone to failure.
         import {
           set_fragment_shader,
           update_player_state,
@@ -98,6 +99,7 @@
         globalThis.play = play;
         globalThis.stop = stop;
 
+        // Get elements for futher manipulations
         const inputShaderText = document.getElementById("input-shader-text");
         const sendShaderButton = document.getElementById("send-shader-button");
         const pauseButton = document.getElementById("pause-button");
@@ -109,23 +111,25 @@
         // Init textarea with `shaders/shader.frag` content, as default shader code by build script
         inputShaderText.value = "default_shader_code_text";
 
+        // Apply new shader, could be done multiple times during one session
         sendShaderButton.addEventListener("click", () => {
           set_fragment_shader(inputShaderText.value);
           console.log("Shader text applied");
         });
 
+        // For the purpose of testing, sends json composed by the tester
         sendPlayerState.addEventListener("click", () => {
-          let json = JSON.parse(inputPlayerState.value);
-          console.log(json);
           update_player_state(JSON.parse(inputPlayerState.value));
         })
 
         let paused = false;
         pauseButton.addEventListener("click", () => {
           if (paused) {
+            // Restores the animation by restoring the rendering, the animation can still be frozen if the animation speed is zero
             play();
             pauseButton.innerText = "Stop animation";
           } else {
+            // Stops animation by stopping render
             stop();
             pauseButton.innerText = "Resume animation";
           }
@@ -133,6 +137,8 @@
           // play()/stop() can be replaced by update_player_state({playback:{paused}});
         });
 
+        // range input is used for controlling animation speed in range of -2..2, but API allows to set any float value for speed
+        // negative value for reverse animation, zero speed will freeze the animation without turning off rendering
         speedInput.addEventListener("input", () => {
           speedText.value = speedInput.value;
           update_player_state({playback:{speed: parseFloat(speedInput.value)}});
@@ -141,47 +147,12 @@
         addEventListener("TrunkApplicationStarted", (event) => {
           // Code sample for error reporting from wasm (for example about shader compilation errors)
           addEventListener("WasmErrorEvent", (event) => {
+            // the `alert` was used for maximum visibility, the main thing is that the API returns a string with an error in the event without binding to the notification method
             alert("Wasm reported error: " + event.detail);
           });
 
-          // Code sample for passing mouse coordinates to iMouse uniform
-          // uniform vec4	iMouse; // image/buffer	xy = current pixel coords (if LMB is down). zw = click pixel
-          const canvas = document.querySelector("canvas");
-
-          let mouse_down = false;
-          let down_x = -1;
-          let down_y = -1;
-
-          // Save click pixel coords
-          canvas.addEventListener("mousedown", (event) => {
-            const rect = canvas.getBoundingClientRect();
-
-            mouse_down = true;
-            down_x = event.clientX - rect.left;
-            down_y = event.clientY - rect.top;
-          });
-
-          canvas.addEventListener("mouseup", (event) => {
-            mouse_down = false;
-            down_x = -1;
-            down_y = -1;
-          });
-
-          // Mouse move handler sends iMouse uniform
-          canvas.addEventListener("mousemove", (event) => {
-            if (mouse_down) {
-              const rect = canvas.getBoundingClientRect(); // Determine canvas position
-
-              // Relative to canvas coords
-              const x = event.clientX - rect.left; // Relative coord X
-              const y = event.clientY - rect.top; // Relative coord Y
-
-              update_player_state({
-                uniforms: { mouse: { x, y, down_x, down_y } },
-              }); // pass iMouse values
-            }
-          });
-
+          // this code is for testing purposes only, to simulate loss of context to ensure no crashes
+          // should be skipped in production
           const loseContextButton = document.getElementById("lose-context");
           loseContextButton.addEventListener("click", () => {
             const canvas = document.querySelector("canvas");
