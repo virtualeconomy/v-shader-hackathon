@@ -53,7 +53,7 @@ Pixel shader should have following format (similar to shadertoys):
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     // Could be some calculations
-    fragColor = /*value of vec4 type*/;
+    fragColor = vec4( 1.0, 0.0, 0.0, 1.0 );
 }
 ```
 
