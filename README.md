@@ -45,9 +45,9 @@ Following uniforms are automatically declared for all fragment shaders similar t
 | uniform vec4 iMouse;      | xy = current pixel coords (if LMB is down). zw = click pixel   |
 | uniform vec4 iDate;       | Year, month, day, time in seconds in .xyzw                     |
 
-## Main function
+## Pixel Shader
 
-Main function should have following format (similar to shadertoys):
+Pixel shader should have following format (similar to shadertoys):
 
 ```GLSL
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
