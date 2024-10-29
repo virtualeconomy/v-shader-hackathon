@@ -14,16 +14,22 @@ Run build script
 $ ./build.sh
 ```
 
+or
+
+```bash
+$ make build-all
+```
+
 # Tools installation
 
 Build tools uses:
 
-1. `Trunk` Installation instructions are at https://trunkrs.dev/#install
-2. `wasm-strip` is part of wabt toolkit, you can download from https://github.com/WebAssembly/wabt/releases <b>OR</b> here is build instruction https://github.com/WebAssembly/wabt <b>OR</b> you can comment out line of usage from build.sh
-3. `wasm-opt` is part of binaryen toolkit, installation instructions here https://github.com/WebAssembly/binaryen?tab=readme-ov-file#releases <b>OR</b> you can comment out line of usage from build.sh
+1. `Trunk` Installation instructions are [here](https://trunkrs.dev/#install)
+2. `wasm-strip` is part of wabt toolkit, you can download from [wabt releases](https://github.com/WebAssembly/wabt/releases) <b>OR</b> here is [build instruction](https://github.com/WebAssembly/wabt) <b>OR</b> you can comment out line of usage from build.sh
+3. `wasm-opt` is part of binaryen toolkit, installation instructions [here](https://github.com/WebAssembly/binaryen?tab=readme-ov-file#releases) <b>OR</b> you can comment out line of usage from build.sh
 4. `sed` and `bash` usually already installed on every linux machine
 
-Or simply run this to install all prerequisites
+Or in case of linux simply run this to install all prerequisites
 
 ```bash
 make deps-install
