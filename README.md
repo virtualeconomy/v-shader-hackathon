@@ -14,7 +14,9 @@ Build
 $ make build-all
 ```
 
-## Tools installation
+## Evnironment and Dependencies
+
+Linux ennvironment is expected for building process.
 
 Build tools uses:
 
