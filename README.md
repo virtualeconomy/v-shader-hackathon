@@ -6,7 +6,7 @@ All for viewing example just host /dist folder for example by Penguin (could be 
 $ penguin serve ./dist
 ```
 
-# Building
+## Building
 
 Run build script
 
@@ -14,7 +14,7 @@ Run build script
 $ ./build.sh
 ```
 
-# Tools installation
+## Tools installation
 
 Build tools uses:
 
@@ -59,9 +59,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
 All other declaration should be compatible with GLSL
 
-# WASM-JS API
-
-## Functions:
+## API
 
 ### function set_fragment_shader(new_shader_code: string): void;
 
@@ -117,13 +115,12 @@ Stops animation till play() call
 
 Resumes animation after stop() call
 
-## Events:
-
-### TrunkApplicationStarted
+### Event TrunkApplicationStarted
 
 Emits on WASM finish loading
 
-### WasmErrorEvent
+### Event WasmErrorEvent
+<!-- qqq : ? -->
 
 Emits when error occurred (console.log also prints error info independently). Usage example:
 

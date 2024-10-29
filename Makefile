@@ -42,7 +42,7 @@ binaryen-install:
 # Installation of WABT (for wasm-strip)
 wabt-install:
 	@which wasm-strip || (echo "Installing WABT tools..." && \
-		curl -L https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-ubuntu-20.04.tar.gz  | tar xz && \
+		curl -L https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-ubuntu-20.04.tar.gz | tar xz && \
 		sudo mv wabt-1.0.36/bin/* /usr/local/bin/ && \
 		rm -rf wabt-1.0.36)
 
