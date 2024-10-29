@@ -73,7 +73,7 @@ Sets param of shader playback.
 
 By default state is empty (player is unpaused, all uniforms (except iMouse) are calculated automatically), but it could be set like this:
 
-```JSON
+```JavaScript
 {
     uniforms: {
         resolution: {
