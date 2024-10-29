@@ -358,220 +358,215 @@ fn run() -> Result<(), gl::WebglError> {
     let mut date_loc = gl.get_uniform_location(&program, "iDate");
 
     // Define the update and draw logic
-    let update_and_draw = {
-        move |mut t: f64| {
-            t /= 1000f64;
-            let mut force_reload_shader = false;
-            match (
-                LOST_WEBGL2_CONTEXT.load(Ordering::Relaxed),
-                reload_webgl2_context,
-            ) {
-                (true, false) => {
-                    // Free resources
-                    gl.delete_program(Some(&program));
-                    reload_webgl2_context = true;
-                    return true;
-                }
-                (true, true) => {
-                    return true;
-                }
-                (false, true) => {
-                    gl::info!("forsing shader reload");
-                    force_reload_shader = true;
-                    reload_webgl2_context = false;
-                }
-                _ => {}
-            }
-
-            if force_reload_shader || RELOAD_FRAGMENT_SHADER.load(Ordering::Relaxed) {
-                let fragment_shader =
-                    get_shader().unwrap_or(prepare_shader(default_frag_shader_src));
-                let new_program = gl::ProgramFromSources::new(vertex_shader_src, &fragment_shader)
-                    .compile_and_link(&gl);
-                match new_program {
-                    Ok(new_program) => {
-                        program = new_program;
-                        gl.use_program(Some(&program));
-                        resolution_loc = gl.get_uniform_location(&program, "iResolution");
-                        time_loc = gl.get_uniform_location(&program, "iTime");
-                        time_delta_loc = gl.get_uniform_location(&program, "iTimeDelta");
-                        frame_loc = gl.get_uniform_location(&program, "iFrame");
-                        frame_rate_loc = gl.get_uniform_location(&program, "iFrameRate");
-                        mouse_loc = gl.get_uniform_location(&program, "iMouse");
-                        date_loc = gl.get_uniform_location(&program, "iDate");
-                        gl::info!("shader reloaded");
-                    }
-                    Err(error) => {
-                        report_error(&format!("Shader compilation error: {error}"));
-                    }
-                }
-                RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
-            }
-
-            // Disable render if paused
-            player_state = if let Some(player_state_mutex) = PLAYER_STATE_STORAGE.get() {
-                player_state_mutex.try_lock().as_deref().cloned().ok()
-            } else {
-                None
-            }
-            .unwrap_or(player_state);
-            if let Some(Playback {
-                paused: Some(true), ..
-            }) = player_state.playback
-            {
-                // Do nothing, except update last_real_time to prevent accumulation of time_delta
-                last_real_time = t;
+    let update_and_draw = move |mut t: f64| {
+        t /= 1000f64;
+        let mut force_reload_shader = false;
+        match (
+            LOST_WEBGL2_CONTEXT.load(Ordering::Relaxed),
+            reload_webgl2_context,
+        ) {
+            (true, false) => {
+                // Free resources
+                gl.delete_program(Some(&program));
+                reload_webgl2_context = true;
                 return true;
             }
+            (true, true) => {
+                return true;
+            }
+            (false, true) => {
+                gl::info!("forsing shader reload");
+                force_reload_shader = true;
+                reload_webgl2_context = false;
+            }
+            _ => {}
+        }
 
-            // iResolution
-            if let Some(Uniforms {
-                resolution: Some(resolution),
-                ..
-            }) = player_state.uniforms
-            {
-                gl.uniform3f(
-                    resolution_loc.as_ref(),
-                    resolution.width,
-                    resolution.height,
-                    resolution.pixel_aspect_ratio,
-                );
-            } else {
-                gl.uniform3f(
-                    resolution_loc.as_ref(),
-                    gl.drawing_buffer_width() as f32,
-                    gl.drawing_buffer_height() as f32,
-                    if let Some(window) = web_sys::window() {
-                        window.device_pixel_ratio() as f32
+        if force_reload_shader || RELOAD_FRAGMENT_SHADER.load(Ordering::Relaxed) {
+            let fragment_shader = get_shader().unwrap_or(prepare_shader(default_frag_shader_src));
+            let new_program = gl::ProgramFromSources::new(vertex_shader_src, &fragment_shader)
+                .compile_and_link(&gl);
+            match new_program {
+                Ok(new_program) => {
+                    program = new_program;
+                    gl.use_program(Some(&program));
+                    resolution_loc = gl.get_uniform_location(&program, "iResolution");
+                    time_loc = gl.get_uniform_location(&program, "iTime");
+                    time_delta_loc = gl.get_uniform_location(&program, "iTimeDelta");
+                    frame_loc = gl.get_uniform_location(&program, "iFrame");
+                    frame_rate_loc = gl.get_uniform_location(&program, "iFrameRate");
+                    mouse_loc = gl.get_uniform_location(&program, "iMouse");
+                    date_loc = gl.get_uniform_location(&program, "iDate");
+                    gl::info!("shader reloaded");
+                }
+                Err(error) => {
+                    report_error(&format!("Shader compilation error: {error}"));
+                }
+            }
+            RELOAD_FRAGMENT_SHADER.store(false, Ordering::Relaxed);
+        }
+
+        // Disable render if paused
+        player_state = if let Some(player_state_mutex) = PLAYER_STATE_STORAGE.get() {
+            player_state_mutex.try_lock().as_deref().cloned().ok()
+        } else {
+            None
+        }
+        .unwrap_or(player_state);
+        if let Some(Playback {
+            paused: Some(true), ..
+        }) = player_state.playback
+        {
+            // Do nothing, except update last_real_time to prevent accumulation of time_delta
+            last_real_time = t;
+            return true;
+        }
+
+        // iResolution
+        if let Some(Uniforms {
+            resolution: Some(resolution),
+            ..
+        }) = player_state.uniforms
+        {
+            gl.uniform3f(
+                resolution_loc.as_ref(),
+                resolution.width,
+                resolution.height,
+                resolution.pixel_aspect_ratio,
+            );
+        } else {
+            gl.uniform3f(
+                resolution_loc.as_ref(),
+                gl.drawing_buffer_width() as f32,
+                gl.drawing_buffer_height() as f32,
+                if let Some(window) = web_sys::window() {
+                    window.device_pixel_ratio() as f32
+                } else {
+                    1.0
+                },
+            );
+        };
+
+        // This code is designed to seamlessly continue playback after `Resume`
+        let (time, time_delta) = if last_real_time == 0.0 {
+            // First frame, just init
+            last_playback_time = t;
+            (last_playback_time, 0.0)
+        } else {
+            let real_time_delta = t - last_real_time;
+            let playback_time_delta = real_time_delta
+                * f64::from(
+                    if let Some(Playback {
+                        speed: Some(speed), ..
+                    }) = player_state.playback
+                    {
+                        speed
                     } else {
                         1.0
                     },
                 );
-            };
+            last_playback_time += playback_time_delta;
+            (last_playback_time, playback_time_delta)
+        };
 
-            // This code is designed to seamlessly continue playback after `Resume`
-            let (time, time_delta) = if last_real_time == 0.0 {
-                // First frame, just init
-                last_real_time = t;
-                last_playback_time = t;
-                (last_playback_time, 0.0)
-            } else {
-                let real_time_delta = t - last_real_time;
-                let playback_time_delta = real_time_delta
-                    * f64::from(
-                        if let Some(Playback {
-                            speed: Some(speed), ..
-                        }) = player_state.playback
-                        {
-                            speed
-                        } else {
-                            1.0
-                        },
-                    );
-                last_real_time = t;
-                last_playback_time += playback_time_delta;
-                (last_playback_time, playback_time_delta)
-            };
-
-            // iTime
-            gl.uniform1f(
-                time_loc.as_ref(),
-                if let Some(Uniforms {
-                    time: Some(fixed_time),
-                    ..
-                }) = player_state.uniforms
-                {
-                    fixed_time
-                } else {
-                    time as f32
-                },
-            );
-
-            // iTimeDelta
-            let time_delta = if let Some(Uniforms {
-                time_delta: Some(fixed_time_delta),
-                ..
-            }) = player_state.uniforms
-            {
-                fixed_time_delta
-            } else {
-                time_delta as f32
-            };
-            gl.uniform1f(time_delta_loc.as_ref(), time_delta);
-            last_real_time = t;
-
-            // iFrame
-            gl.uniform1f(
-                frame_loc.as_ref(),
-                if let Some(Uniforms {
-                    frame: Some(fixed_frame),
-                    ..
-                }) = player_state.uniforms
-                {
-                    fixed_frame
-                } else {
-                    frame
-                },
-            );
-            frame += 1f32;
-
-            // iFrameRate
-            gl.uniform1f(
-                frame_rate_loc.as_ref(),
-                if let Some(Uniforms {
-                    frame_rate: Some(fixed_frame_rate),
-                    ..
-                }) = player_state.uniforms
-                {
-                    fixed_frame_rate
-                } else {
-                    1f32 / time_delta
-                },
-            );
-
-            // iMouse
+        // iTime
+        gl.uniform1f(
+            time_loc.as_ref(),
             if let Some(Uniforms {
-                mouse:
-                    Some(MouseUniform {
-                        x,
-                        y,
-                        down_x,
-                        down_y,
-                    }),
+                time: Some(fixed_time),
                 ..
             }) = player_state.uniforms
             {
-                gl.uniform4f(mouse_loc.as_ref(), x, y, down_x, down_y);
-            }
-
-            // iDate
-            if let Some(Uniforms {
-                date: Some(replaced_date),
-                ..
-            }) = player_state.uniforms
-            {
-                gl.uniform4f(
-                    date_loc.as_ref(),
-                    replaced_date.year,
-                    replaced_date.month,
-                    replaced_date.day,
-                    replaced_date.time,
-                );
+                fixed_time
             } else {
-                let date = Date::new_0();
-                gl.uniform4f(
-                    date_loc.as_ref(),
-                    date.get_full_year() as f32,
-                    date.get_month() as f32,
-                    date.get_day() as f32,
-                    (date.get_hours() * 3600 + date.get_minutes() * 60 + date.get_seconds()) as f32,
-                );
-            };
+                time as f32
+            },
+        );
 
-            // Draw points
-            gl.draw_arrays(GL::TRIANGLE_STRIP, 0, 4);
-            true
+        // iTimeDelta
+        let time_delta = if let Some(Uniforms {
+            time_delta: Some(fixed_time_delta),
+            ..
+        }) = player_state.uniforms
+        {
+            fixed_time_delta
+        } else {
+            time_delta as f32
+        };
+        gl.uniform1f(time_delta_loc.as_ref(), time_delta);
+        last_real_time = t;
+
+        // iFrame
+        gl.uniform1f(
+            frame_loc.as_ref(),
+            if let Some(Uniforms {
+                frame: Some(fixed_frame),
+                ..
+            }) = player_state.uniforms
+            {
+                fixed_frame
+            } else {
+                frame
+            },
+        );
+        frame += 1f32;
+
+        // iFrameRate
+        gl.uniform1f(
+            frame_rate_loc.as_ref(),
+            if let Some(Uniforms {
+                frame_rate: Some(fixed_frame_rate),
+                ..
+            }) = player_state.uniforms
+            {
+                fixed_frame_rate
+            } else {
+                1f32 / time_delta
+            },
+        );
+
+        // iMouse
+        if let Some(Uniforms {
+            mouse:
+                Some(MouseUniform {
+                    x,
+                    y,
+                    down_x,
+                    down_y,
+                }),
+            ..
+        }) = player_state.uniforms
+        {
+            gl.uniform4f(mouse_loc.as_ref(), x, y, down_x, down_y);
         }
+
+        // iDate
+        if let Some(Uniforms {
+            date: Some(replaced_date),
+            ..
+        }) = player_state.uniforms
+        {
+            gl.uniform4f(
+                date_loc.as_ref(),
+                replaced_date.year,
+                replaced_date.month,
+                replaced_date.day,
+                replaced_date.time,
+            );
+        } else {
+            let date = Date::new_0();
+            gl.uniform4f(
+                date_loc.as_ref(),
+                date.get_full_year() as f32,
+                date.get_month() as f32,
+                date.get_day() as f32,
+                (date.get_hours() * 3600 + date.get_minutes() * 60 + date.get_seconds()) as f32,
+            );
+        };
+
+        // Draw points
+        gl.draw_arrays(GL::TRIANGLE_STRIP, 0, 4);
+        true
     };
 
     // Run the render loop
