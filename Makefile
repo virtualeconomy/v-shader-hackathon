@@ -108,7 +108,7 @@ clean :
 #
 
 # Default build
-build-all: build-wasm optimize-wasm optimize-js replace-shader
+build: build-wasm optimize-wasm update-js-filename replace-shader
 
 # 1. Build wasm with Trunk
 build-wasm:
@@ -124,7 +124,7 @@ optimize-wasm:
 	done
 
 # 3. Updating js filenames of generated files in index.html
-optimize-js:
+update-js-filename:
 	@for js_file in $(wildcard $(DIST_DIR)/*.js); do \
 		echo "Correcting JS filename in index.html: $$js_file"; \
 		filename=$$(basename $$js_file); \
@@ -144,7 +144,7 @@ clean-dist:
 
 # Command list
 .PHONY: deps-install trunk-install binaryen-install wabt-install \
-  build-all build-wasm optimize-wasm optimize-js replace-shader clean-dist \
+  build build-wasm optimize-wasm update-js-filename replace-shader clean-dist \
   audit \
   lint \
   check \
