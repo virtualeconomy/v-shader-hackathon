@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <title>Example of wasm shader runner usage</title>
     
-<script type="module" nonce="oePPCtwU307pdHZpzS8JFw==">
-import init, * as bindings from '/wasm_shader_runner-2889a37e342c3664.js';
-const wasm = await init('/wasm_shader_runner-2889a37e342c3664_bg.wasm');
+<script type="module" nonce="ADsRdCq89WSexQs/FibQyw==">
+import init, * as bindings from '/wasm_shader_runner-32edfc57ede5ba0d.js';
+const wasm = await init('/wasm_shader_runner-32edfc57ede5ba0d_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -34,9 +34,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 100vh;
       }
     </style>
-  
-<link rel="modulepreload" href="/wasm_shader_runner-2889a37e342c3664.js" crossorigin=anonymous integrity="sha384-rDrrYvrY36OpfjJyEJFUPELLw/5I1Ty18zpODVq3naqTqXQy+iDoVUbV2mlGnEoI">
-<link rel="preload" href="/wasm_shader_runner-2889a37e342c3664_bg.wasm" crossorigin=anonymous integrity="sha384-PJ91MbUr/lE7gJE96JxFy4oh8+psMedXnMojxKzlMhgRXgKwEBU8fvHBRxwROeXk" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/wasm_shader_runner-32edfc57ede5ba0d.js" crossorigin=anonymous integrity="sha384-VjfC0Ntqs7xkTz8AA5BTur2hnet1K9tqQ7bj8uSwYubAEK6UIXyRf0R9SeeTuX8+"><link rel="preload" href="/wasm_shader_runner-32edfc57ede5ba0d_bg.wasm" crossorigin=anonymous integrity="sha384-zVsc6mQjH++FC5WYSj3OEKfKrSiJd4iNxuhf0q3W5JdyMAV4Pbo1QKA1NZEYNfqh" as="fetch" type="application/wasm"></head>
   <body>
     <div>
       <div>
@@ -104,7 +102,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           update_player_state,
           play,
           stop,
-        } from "/wasm_shader_runner-2889a37e342c3664.js";
+        } from "/wasm_shader_runner-32edfc57ede5ba0d.js";
 
         // Make functions accessible from browser console
         globalThis.set_fragment_shader = set_fragment_shader;

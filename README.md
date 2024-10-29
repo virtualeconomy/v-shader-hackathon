@@ -1,10 +1,9 @@
 # Usage
 
-All for viewing example just host /dist folder for example by
+All for viewing example just host /dist folder for example by Penguin (could be installed by `cargo install penguin-app`)
 
 ```bash
-$ cd ./dist
-$ python -m http.server
+$ penguin serve ./dist
 ```
 
 # Building
@@ -34,7 +33,7 @@ make deps-install
 
 ## Uniforms
 
-Following uniforms are automaticaly declared for all fragment shaders similar to shadertoys.
+Following uniforms are automatically declared for all fragment shaders similar to shadertoys.
 
 | Declaration               | Description                                                    |
 | ------------------------- | -------------------------------------------------------------- |
@@ -126,7 +125,7 @@ Emits on WASM finish loading
 
 ### WasmErrorEvent
 
-Emits when error occured (console.log also prints error info independently). Usage example:
+Emits when error occurred (console.log also prints error info independently). Usage example:
 
 ```Javascript
 addEventListener("WasmErrorEvent", (event) => {
@@ -134,3 +133,37 @@ addEventListener("WasmErrorEvent", (event) => {
     alert(event.detail);
 });
 ```
+
+## Minimal code to start
+
+1. For initialization calling `init` from js shipped with wasm is enough
+
+```html
+<script type="module" nonce="u4yenYsZSS48mOe0heMQug==">
+  import init, * as bindings from "/wasm_shader_runner-32edfc57ede5ba0d.js";
+  const wasm = await init("/wasm_shader_runner-32edfc57ede5ba0d_bg.wasm");
+
+  window.wasmBindings = bindings;
+
+  dispatchEvent(
+    new CustomEvent("TrunkApplicationStarted", { detail: { wasm } })
+  );
+</script>
+<link
+  rel="modulepreload"
+  href="/wasm_shader_runner-32edfc57ede5ba0d.js"
+  crossorigin="anonymous"
+  integrity="sha384-VjfC0Ntqs7xkTz8AA5BTur2hnet1K9tqQ7bj8uSwYubAEK6UIXyRf0R9SeeTuX8+"
+/>
+<link
+  rel="preload"
+  href="/wasm_shader_runner-32edfc57ede5ba0d_bg.wasm"
+  crossorigin="anonymous"
+  integrity="sha384-zVsc6mQjH++FC5WYSj3OEKfKrSiJd4iNxuhf0q3W5JdyMAV4Pbo1QKA1NZEYNfqh"
+  as="fetch"
+  type="application/wasm"
+/>
+```
+
+In this code example paths of js and wasm contains hex value `32edfc57ede5ba0d` which may differ in files after running build script.
+This code sample automatically generated in dist/index.html by build script

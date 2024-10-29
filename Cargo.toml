@@ -4,19 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-minwebgl = { version = "0.2" }
+minwebgl = { version = "0.2", default-features = false, features = ['enabled'] }
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = [
   'CustomEvent',
   'CustomEventInit',
   'MouseEvent',
   'Element',
-  'DomRect'
+  'DomRect',
+  'Window',
+  'WebGl2RenderingContext'
 ]}
 js-sys = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde-wasm-bindgen = "0.4"
+serde-wasm-bindgen = "0.6"
 
 [profile.release]
 lto = true

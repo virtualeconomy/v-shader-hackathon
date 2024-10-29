@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Minimal example of wasm shader runner usage</title>
+
+    <script type="module" nonce="ADsRdCq89WSexQs/FibQyw==">
+      import init, * as bindings from "/wasm_shader_runner-32edfc57ede5ba0d.js";
+      const wasm = await init("/wasm_shader_runner-32edfc57ede5ba0d_bg.wasm");
+
+      window.wasmBindings = bindings;
+
+      dispatchEvent(
+        new CustomEvent("TrunkApplicationStarted", { detail: { wasm } })
+      );
+    </script>
+    <link
+      rel="modulepreload"
+      href="/wasm_shader_runner-32edfc57ede5ba0d.js"
+      crossorigin="anonymous"
+      integrity="sha384-VjfC0Ntqs7xkTz8AA5BTur2hnet1K9tqQ7bj8uSwYubAEK6UIXyRf0R9SeeTuX8+"
+    />
+    <link
+      rel="preload"
+      href="/wasm_shader_runner-32edfc57ede5ba0d_bg.wasm"
+      crossorigin="anonymous"
+      integrity="sha384-zVsc6mQjH++FC5WYSj3OEKfKrSiJd4iNxuhf0q3W5JdyMAV4Pbo1QKA1NZEYNfqh"
+      as="fetch"
+      type="application/wasm"
+    />
+  </head>
+  <body></body>
+</html>

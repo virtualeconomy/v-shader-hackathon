@@ -1,5 +1,4 @@
 use core::sync::atomic::AtomicBool;
-use gl::GL;
 use js_sys::Date;
 use minwebgl as gl;
 use serde::Deserialize;
@@ -10,7 +9,7 @@ use wasm_bindgen::{
     prelude::wasm_bindgen,
     JsCast, JsValue,
 };
-use web_sys::{window, CustomEvent, Element, EventTarget};
+use web_sys::{window, CustomEvent, Element, EventTarget, WebGl2RenderingContext as GL};
 
 #[derive(Clone, Copy, Deserialize, Debug)]
 struct ResolutionUniform {
