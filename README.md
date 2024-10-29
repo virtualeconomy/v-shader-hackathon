@@ -31,9 +31,9 @@ Or in case of linux simply run this to install all prerequisites
 make deps-install
 ```
 
-# Shaders
+## Shaders
 
-## Uniforms
+### Uniforms
 
 Following uniforms are automatically declared for all fragment shaders similar to shadertoys.
 
@@ -47,7 +47,7 @@ Following uniforms are automatically declared for all fragment shaders similar t
 | uniform vec4 iMouse;      | xy = current pixel coords (if LMB is down). zw = click pixel   |
 | uniform vec4 iDate;       | Year, month, day, time in seconds in .xyzw                     |
 
-## Pixel Shader
+### Pixel Shader
 
 Pixel shader should have following format (similar to shadertoys):
 
