@@ -28,18 +28,21 @@ eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
 deps-install: trunk-install binaryen-install wabt-install
 
 # Installation of Trunk using Cargo
+# instructions: ttps://trunkrs.dev/#install
 trunk-install:
 	@which trunk || (echo "Installing Trunk..." && \
 		cargo install trunk)
 
-# Installation of Binaryen (for wasm-opt) from https://github.com/WebAssembly/binaryen?tab=readme-ov-file#releases
+# Installation of Binaryen (for wasm-opt)
+# instructions: https://github.com/WebAssembly/wabt
 binaryen-install:
 	@which wasm-opt || (echo "Installing Binaryen tools..." && \
 		curl -L https://github.com/WebAssembly/binaryen/releases/download/version_119/binaryen-version_119-x86_64-linux.tar.gz | tar xz && \
 		sudo mv binaryen-version_119/bin/* /usr/local/bin/ && \
 		rm -rf binaryen-version_119)
 
-# Installation of WABT (for wasm-strip) from https://github.com/WebAssembly/wabt/releases
+# Installation of WABT (for wasm-strip)
+# instructions: https://github.com/WebAssembly/binaryen?tab=readme-ov-file#releases
 wabt-install:
 	@which wasm-strip || (echo "Installing WABT tools..." && \
 		curl -L https://github.com/WebAssembly/wabt/releases/download/1.0.36/wabt-1.0.36-ubuntu-20.04.tar.gz | tar xz && \
