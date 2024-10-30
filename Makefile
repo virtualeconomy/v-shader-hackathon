@@ -145,8 +145,33 @@ replace-shader: $(SHADER_FILE)
 clean-dist:
 	rm -rf $(DIST_DIR)
 
+# === Check Development Environment ===
+
+# Check if the development environment is ready and all dependencies are installed.
+# Usage:
+# make check-env
+
+check-env:
+	@echo "Checking development environment..."
+	@missing_tools="" ; \
+	if ! command -v rustc > /dev/null 2>&1; then missing_tools="$$missing_tools rust"; fi ; \
+	if ! command -v cargo > /dev/null 2>&1; then missing_tools="$$missing_tools cargo"; fi ; \
+	if ! command -v trunk > /dev/null 2>&1; then missing_tools="$$missing_tools trunk"; fi ; \
+	if ! command -v wasm-opt > /dev/null 2>&1; then missing_tools="$$missing_tools wasm-opt"; fi ; \
+	if ! command -v wasm-strip > /dev/null 2>&1; then missing_tools="$$missing_tools wasm-strip"; fi ; \
+	if ! rustup target list --installed | grep -q wasm32-unknown-unknown; then \
+	    missing_tools="$$missing_tools wasm32-unknown-unknown"; \
+	fi ; \
+	if [ -n "$$missing_tools" ]; then \
+	    echo "The following tools are missing: $$missing_tools"; \
+	    echo "Please install the missing tools to proceed."; \
+	else \
+	    echo "All necessary tools are installed."; \
+	fi
+
 # Command list
 .PHONY: deps-install trunk-install binaryen-install wabt-install \
+  check-env \
   build build-wasm optimize-wasm update-js-filename replace-shader clean-dist \
   audit \
   lint \
