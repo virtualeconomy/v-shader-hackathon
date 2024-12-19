@@ -10,8 +10,9 @@ WASM_STRIP = wasm-strip
 # Paths
 DIST_DIR = dist
 SHADERS_DIR = shaders
-SHADER_FILE = $(SHADERS_DIR)/shader.frag
-INDEX_HTML = $(DIST_DIR)/index.html
+#SHADER_FILE = $(SHADERS_DIR)/shader.frag
+SHADER_FILE = shadertoy_shaders/Base_warp_fBM.frag
+INDEX_HTML = index.html
 
 # Comma
 comma := ,
