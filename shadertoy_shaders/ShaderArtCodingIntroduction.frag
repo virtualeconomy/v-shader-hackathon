@@ -18,8 +18,8 @@ vec3 palette( float t ) {
 }
 
 //https://www.shadertoy.com/view/mtyGWy
-void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-    vec2 uv = (fragCoord * 2.0 - iResolution.xy) / iResolution.y;
+void render_image( out vec4 fragColor, in vec2 fragCoord ) {
+    vec2 uv = (fragCoord * 2.0 - u_resolution.xy) / u_resolution.y;
     vec2 uv0 = uv;
     vec3 finalColor = vec3(0.0);
     
@@ -28,9 +28,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 
         float d = length(uv) * exp(-length(uv0));
 
-        vec3 col = palette(length(uv0) + i*.4 + iTime*.4);
+        vec3 col = palette(length(uv0) + i*.4 + u_time*.4);
 
-        d = sin(d*8. + iTime)/8.;
+        d = sin(d*8. + u_time)/8.;
         d = abs(d);
 
         d = pow(0.01 / d, 1.2);

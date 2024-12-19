@@ -77,12 +77,12 @@ float fbm( vec2 p )
 {
     float f = 0.0;
 
-    f += 0.500000*noise( p + iTime  ); p = mtx*p*2.02;
+    f += 0.500000*noise( p + u_time  ); p = mtx*p*2.02;
     f += 0.031250*noise( p ); p = mtx*p*2.01;
     f += 0.250000*noise( p ); p = mtx*p*2.03;
     f += 0.125000*noise( p ); p = mtx*p*2.01;
     f += 0.062500*noise( p ); p = mtx*p*2.04;
-    f += 0.015625*noise( p + sin(iTime) );
+    f += 0.015625*noise( p + sin(u_time) );
 
     return f/0.96875;
 }
@@ -92,9 +92,9 @@ float pattern( in vec2 p )
 	return fbm( p + fbm( p + fbm( p ) ) );
 }
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
+void render_image( out vec4 fragColor, in vec2 fragCoord )
 {
-    vec2 uv = fragCoord/iResolution.x;
+    vec2 uv = fragCoord/u_resolution.x;
 	float shade = pattern(uv);
     fragColor = vec4(colormap(shade).rgb, shade);
 }

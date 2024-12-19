@@ -65,12 +65,12 @@ float map(vec3 pos, float iTime) {
 }
 
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-	vec2 p = (fragCoord.xy * 2. - iResolution.xy) / min(iResolution.x, iResolution.y);
-	vec3 ro = vec3(0., -0.2 ,iTime * 4.);
+void render_image( out vec4 fragColor, in vec2 fragCoord ) {
+	vec2 p = (fragCoord.xy * 2. - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+	vec3 ro = vec3(0., -0.2 ,u_time * 4.);
 	vec3 ray = normalize(vec3(p, 1.5));
-	ray.xy = ray.xy * rot(sin(iTime * .03) * 5.);
-	ray.yz = ray.yz * rot(sin(iTime * .05) * .2);
+	ray.xy = ray.xy * rot(sin(u_time * .03) * 5.);
+	ray.yz = ray.yz * rot(sin(u_time * .05) * .2);
 	float t = 0.1;
 	vec3 col = vec3(0.);
 	float ac = 0.0;
@@ -79,9 +79,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 	for (int i = 0; i < 99; i++){
 		vec3 pos = ro + ray * t;
 		pos = mod(pos-2., 4.) -2.;
-		gTime = iTime -float(i) * 0.01;
+		gTime = u_time -float(i) * 0.01;
 		
-		float d = map(pos, iTime);
+		float d = map(pos, u_time);
 
 		d = max(abs(d), 0.01);
 		ac += exp(-d*23.);
@@ -91,10 +91,10 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 
 	col = vec3(ac * 0.02);
 
-	col +=vec3(0.,0.2 * abs(sin(iTime)),0.5 + sin(iTime) * 0.2);
+	col +=vec3(0.,0.2 * abs(sin(u_time)),0.5 + sin(u_time) * 0.2);
 
 
-	fragColor = vec4(col ,1.0 - t * (0.02 + 0.02 * sin (iTime)));
+	fragColor = vec4(col ,1.0 - t * (0.02 + 0.02 * sin (u_time)));
 }
 
 /** SHADERDATA

@@ -104,7 +104,7 @@ vec3 fcos1(vec3 x) {
     //if((length(w)==0.))return vec3(0.); // dFd fix2
     //w*=0.; //test
     float lw=length(w);
-    if((lw==0.)||isnan(lw)||isinf(lw)){vec3 tc=vec3(0.); for(int i=0;i<8;i++)tc+=cos(x+x*float(i-4)*(0.01*400./iResolution.y));return tc/8.;}
+    if((lw==0.)||isnan(lw)||isinf(lw)){vec3 tc=vec3(0.); for(int i=0;i<8;i++)tc+=cos(x+x*float(i-4)*(0.01*400./u_resolution.y));return tc/8.;}
     
     return cos(x) * smoothstep(3.14 * 2.0, 0.0, w);
 }
@@ -127,7 +127,7 @@ vec3 getColor(vec3 p)
     p *= 01.25;
     p = 0.5 * p / dot(p, p);
 #ifdef ANIM_COLOR
-    p+=0.072*iTime;
+    p+=0.072*u_time;
 #endif
 
     float t = (0.13) * length(p);
@@ -422,7 +422,7 @@ vec4 insides(vec3 ro, vec3 rd, vec3 nor_c, vec3 l_dir, out float tout)
     }
 
 #ifdef ANIM_SHAPE
-    float curvature = (0.001+1.5-1.5*smoothstep(0.,8.5,mod((iTime+tshift)*0.44,20.))*(1.-smoothstep(10.,18.5,mod((iTime+tshift)*0.44,20.))));
+    float curvature = (0.001+1.5-1.5*smoothstep(0.,8.5,mod((u_time+tshift)*0.44,20.))*(1.-smoothstep(10.,18.5,mod((u_time+tshift)*0.44,20.))));
     // curvature(to not const above) make compilation on Angle 15+ sec
 #else
 #ifdef STATIC_SHAPE
@@ -572,28 +572,28 @@ vec4 insides(vec3 ro, vec3 rd, vec3 nor_c, vec3 l_dir, out float tout)
     return vec4(col, a);
 }
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord)
+void render_image(out vec4 fragColor, in vec2 fragCoord)
 {
     float osc = 0.5;
     vec3 l_dir = normalize(vec3(0., 1., 0.));
     l_dir *= rotz(0.5);
     float mouseY = 1.0 * 0.5 * PI;
 #ifdef MOUSE_control
-    mouseY = (1.0 - 1.15 * iMouse.y / iResolution.y) * 0.5 * PI;
-    if(iMouse.y < 1.)
+    mouseY = (1.0 - 1.15 * u_mouse.y / u_resolution.y) * 0.5 * PI;
+    if(u_mouse.y < 1.)
 #endif
 #ifdef CAMERA_POS
     mouseY = PI*CAMERA_POS;
 #else
-    mouseY = PI*0.49 - smoothstep(0.,8.5,mod((iTime+tshift)*0.33,25.))*(1.-smoothstep(14.,24.0,mod((iTime+tshift)*0.33,25.))) * 0.55 * PI;
+    mouseY = PI*0.49 - smoothstep(0.,8.5,mod((u_time+tshift)*0.33,25.))*(1.-smoothstep(14.,24.0,mod((u_time+tshift)*0.33,25.))) * 0.55 * PI;
 #endif
 #ifdef ROTATION_SPEED
-    float mouseX = -2.*PI-0.25*(iTime*ROTATION_SPEED+tshift);
+    float mouseX = -2.*PI-0.25*(u_time*ROTATION_SPEED+tshift);
 #else
-    float mouseX = -2.*PI-0.25*(iTime+tshift);
+    float mouseX = -2.*PI-0.25*(u_time+tshift);
 #endif
 #ifdef MOUSE_control
-    mouseX+=-(iMouse.x / iResolution.x) * 2. * PI;
+    mouseX+=-(u_mouse.x / u_resolution.x) * 2. * PI;
 #endif
     
 #ifdef CAMERA_FAR
@@ -623,9 +623,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     for( int nx=0; nx<AA; nx++ )
     {
     vec2 o = vec2(mod(float(mx+AA/2),float(AA)),mod(float(nx+AA/2),float(AA))) / float(AA) - 0.5;
-    vec2 uv = (fragCoord + o - 0.5 * iResolution.xy) / iResolution.x;
+    vec2 uv = (fragCoord + o - 0.5 * u_resolution.xy) / u_resolution.x;
 #else
-    vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.x;
+    vec2 uv = (fragCoord - 0.5 * u_resolution.xy) / u_resolution.x;
 #endif
     vec3 rd = normalize(w * FDIST + uv.x * u + uv.y * v);
 
@@ -637,7 +637,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
     if (t > 0.)
     {
-        float ang = -iTime * 0.33;
+        float ang = -u_time * 0.33;
         vec3 col = vec3(0.);
 #ifdef AA_CUBE
         if(in_once)col=incol_once;
@@ -748,7 +748,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 #endif
     fragColor.rgb=clamp(fragColor.rgb,0.,1.);
 #if defined(BG_ALPHA)||defined(ONLY_BOX)||defined(SHADOW_ALPHA)
-    fragColor.rgb=fragColor.rgb*fragColor.w+texture(iChannel0, fragCoord/iResolution.xy).rgb*(1.-fragColor.w);
+    fragColor.rgb=fragColor.rgb*fragColor.w+texture(iChannel0, fragCoord/u_resolution.xy).rgb*(1.-fragColor.w);
 #endif
     //fragColor=vec4(fragColor.w);
 }

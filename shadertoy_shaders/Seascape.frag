@@ -8,7 +8,7 @@
 const int NUM_STEPS = 32;
 const float PI	 	= 3.141592;
 const float EPSILON	= 1e-3;
-#define EPSILON_NRM (0.1 / iResolution.x)
+#define EPSILON_NRM (0.1 / u_resolution.x)
 #define AA
 
 // sea
@@ -20,7 +20,7 @@ const float SEA_SPEED = 0.8;
 const float SEA_FREQ = 0.16;
 const vec3 SEA_BASE = vec3(0.0,0.09,0.18);
 const vec3 SEA_WATER_COLOR = vec3(0.8,0.9,0.6)*0.6;
-#define SEA_TIME (1.0 + iTime * SEA_SPEED)
+#define SEA_TIME (1.0 + u_time * SEA_SPEED)
 const mat2 octave_m = mat2(1.6,1.2,-1.2,1.6);
 
 // math
@@ -159,9 +159,9 @@ float heightMapTracing(vec3 ori, vec3 dir, out vec3 p) {
 }
 
 vec3 getPixel(in vec2 coord, float time) {    
-    vec2 uv = coord / iResolution.xy;
+    vec2 uv = coord / u_resolution.xy;
     uv = uv * 2.0 - 1.0;
-    uv.x *= iResolution.x / iResolution.y;    
+    uv.x *= u_resolution.x / u_resolution.y;    
         
     // ray
     vec3 ang = vec3(sin(time*3.0)*0.1,sin(time)*0.2+0.3,time);    
@@ -184,8 +184,8 @@ vec3 getPixel(in vec2 coord, float time) {
 }
 
 // main
-void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-    float time = iTime * 0.3 + iMouse.x*0.01;
+void render_image( out vec4 fragColor, in vec2 fragCoord ) {
+    float time = u_time * 0.3 + iMouse.x*0.01;
 	
 #ifdef AA
     vec3 color = vec3(0.0);

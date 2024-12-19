@@ -14,7 +14,7 @@ vec2 rotate(vec2 p,float a){
 
 float map(vec3 p){
     for( int i = 0; i<8; ++i){
-        float t = iTime*0.2;
+        float t = u_time*0.2;
         p.xz =rotate(p.xz,t);
         p.xy =rotate(p.xy,t*1.89);
         p.xz = abs(p.xz);
@@ -42,11 +42,11 @@ vec4 rm (vec3 ro, vec3 rd){
     }
     return vec4(col,1./(d*100.));
 }
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
+void render_image( out vec4 fragColor, in vec2 fragCoord )
 {
-    vec2 uv = (fragCoord-(iResolution.xy/2.))/iResolution.x;
+    vec2 uv = (fragCoord-(u_resolution.xy/2.))/u_resolution.x;
 	vec3 ro = vec3(0.,0.,-50.);
-    ro.xz = rotate(ro.xz,iTime);
+    ro.xz = rotate(ro.xz,u_time);
     vec3 cf = normalize(-ro);
     vec3 cs = normalize(cross(cf,vec3(0.,1.,0.)));
     vec3 cu = normalize(cross(cf,cs));

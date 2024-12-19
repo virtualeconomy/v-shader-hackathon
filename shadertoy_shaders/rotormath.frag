@@ -2,8 +2,8 @@
  * URL: https://www.shadertoy.com/view/M3jBDW
  */
 
-#define M iMouse.xy
-#define R iResolution.xy
+#define M u_mouse.xy
+#define R u_resolution.xy
 #define W R.x
 #define H R.y
 
@@ -280,13 +280,13 @@ observer eye;
 
 projection retina;
 
-void mainImage( out vec4 O, in vec2 P )
+void render_image( out vec4 O, in vec2 P )
 {
 	UV = ( 2. * P - R ) / H;
 	AA = ( .5 * ( dFdx( UV.x ) + dFdy( UV.y ) ) );
     draw_width = 1. / ( R.y * .5 );
     
-    eye_pos = vector( -.75, -cos(iTime*.5)*.25, sin(iTime*.5)*.25);
+    eye_pos = vector( -.75, -cos(u_time*.5)*.25, sin(u_time*.5)*.25);
 	eye = new_observer( eye_pos, look_pos, 0. );
     retina = new_projection( 90., 1., 2. );
     
