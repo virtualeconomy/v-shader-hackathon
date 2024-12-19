@@ -253,7 +253,7 @@ float remap
   return mix( t_min_out, t_max_out, k );
 }
 
-float segShadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
+float seg_shadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
 {
   float k1 = 1.0 - rd.x * rd.x;
   float k4 = ( ro.x - pa.x ) * k1;
@@ -276,7 +276,7 @@ float segShadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
 
 // https://iquilezles.org/articles/boxfunctions/
 // https://www.shadertoy.com/view/WslGz4
-float boxSoftShadow
+float box_soft_shadow
 ( 
   in vec3 ro, 
   in vec3 rd,
@@ -296,24 +296,21 @@ float boxSoftShadow
   if( tN > tF || tF < 0.0 )
   {
     float sh = 1.0;
-    sh = segShadow( ro.xyz, rd.xyz, rad.xyz, sh );
-    sh = segShadow( ro.yzx, rd.yzx, rad.yzx, sh );
-    sh = segShadow( ro.zxy, rd.zxy, rad.zxy, sh );
+    sh = seg_shadow( ro.xyz, rd.xyz, rad.xyz, sh );
+    sh = seg_shadow( ro.yzx, rd.yzx, rad.yzx, sh );
+    sh = seg_shadow( ro.zxy, rd.zxy, rad.zxy, sh );
     return smoothstep( 0.0, 1.0, sk * sqrt( sh ) );
   }
   return 0.0;
 }
 
-float water_octave( in vec2 uv_in, in float choppy )
+float water_octave( in vec2 uv, in float choppy )
 {
   // Offset the uv value in y = x direction by the noise value
-  vec2 uv = uv_in + perlin_noise2dx1d( uv_in );
+  uv += perlin_noise2dx1d( uv );
   vec2 s_wave = 1.0 - abs( sin( uv ) );
   vec2 c_wave = abs( cos( uv ) );
-  // Smooth out the waves
   s_wave = mix( s_wave, c_wave, s_wave );
-  // Shuffle the resulting values, I guess
-  // Minus from 1.0 - for the wave to cave in
   return pow( 1.0 - pow( s_wave.x * s_wave.y, 0.65 ), choppy );
 }
 
@@ -324,16 +321,14 @@ float water_noise( in vec2 p )
   float amp = 0.6;
   float choppy = 4.0;
   mat2 octave_m = mat2( 1.6, 1.2, -1.2, 1.6 );
-
   p.x *= 0.75;
-  
-  float d = 0.0;
+
   float h = 0.0;    
 
   for( int i = 0; i < 5; i++ ) 
   { 
     // Mix two octaves for better detail
-    d = water_octave( ( p + iTime / 2.0 ) * freq, choppy ) + water_octave( ( p - iTime / 2.0 ) * freq, choppy );
+    float d = water_octave( ( p + iTime / 2.0 ) * freq, choppy ) + water_octave( ( p - iTime / 2.0 ) * freq, choppy );
     // Add the height of the current octave to the sum
     h += d * amp;        
     // Deform p domain( rotate and stretch)
@@ -406,12 +401,12 @@ vec3 nebula_color( in float density, in float radius )
 
 vec3 bgcol( in vec3 rd )
 {
-  return pow(mix
+  return mix
   ( 
-      vec3( 0.01 ), 
-      vec3( 0.336, 0.458, 0.668 ), 
-      1.0 - pow( abs( rd.y ), 1.3 ) 
-  ), vec3( 2.0 ));
+    vec3( 0.01 ), 
+    vec3( 0.336, 0.458, 0.668 ), 
+    smoothstep( 1.0, 0.0, abs( rd.y ) ) 
+  );
 }
 
 vec3 draw_background
@@ -442,6 +437,7 @@ vec3 draw_background
 
       // Direction to the light source
       vec3 light_dir = normalize( LIGHT_SOURCE - plane_hit );
+      // Amount of light that hits the surface
       float LdotN = saturate( dot( light_dir, plane_normal ) );
       // Half vector between the view direction and the light direction
       vec3 H = normalize( light_dir - rd );
@@ -455,7 +451,7 @@ vec3 draw_background
       // Reduce by the attenuation
       plane_color *= attenuation; 
 
-      float shad = boxSoftShadow( plane_hit, normalize( LIGHT_SOURCE - plane_hit ), BOX_DIMENSIONS, 2.0 );
+      float shad = box_soft_shadow( plane_hit, normalize( LIGHT_SOURCE - plane_hit ), BOX_DIMENSIONS, 2.0 );
       plane_color *= smoothstep( -0.2, 1.0, shad );
 
       final_color = mix
@@ -736,7 +732,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
   if( box_t > 0.0 )
   {
     final_color = vec3( 0.0 );
-    // Intersection point on the box
+    // Intersection point with the box
     vec3 ro = ro + box_t * rd;
 
     vec3 w = box_normal;

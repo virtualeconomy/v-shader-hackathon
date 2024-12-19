@@ -1,16 +1,15 @@
 
-### Basic setup
-We are going to create our custom shaders based on this shader [Cube lines Shader]. First we need to generate our rays. For this we need to have a ray origin( `ro` ), which is going to be our camera's position, and a ray direction( `rd` ), which we are going to calculate ourselves. The idea is to generate them in simple to calculate coordinates, and then to rotate them to match the view direction and orientation of the camera.  
-
-We are going to place our origin at ( 0.0, 0.0, 0.0 ) and shoot rays in +Z direction. The X and Y coordinates will be decided from the fragment posiiton on the screen:
+### 1. Basic setup
+For our shader we are going to use raytracing to draw the scene, so first we need to generate our rays. A ray has an origin and a direction. The origin will be our camera's position. From the origin we are going to shoot one ray per pixel in camera's view direction.  
+Before we shoot a ray from camera's position we generate ray direction in the following manner:
 
 ```glsl
 vec3 rd = vec3( ( fragCoord * 2.0 - iResolution.xy ) / iResolution.x, 0.7 );
 ```
 
-We shift a fragment position to be centered at the  origin( [ 0.0, 0.0 ]), and then we normalize them by the width of the screen. This way we are going to have uniform speed across X and Y axis, when we move our camera. Z value define FOV ofthe camera - the bigger it is, the more zoomed in the view will be. We flip the Y axis, because fragment coordinates start at left-upper corner, and we need it to start at the left-bottom corner.
+We shift the fragment's screen space position to be centered at the  origin( [ 0.0, 0.0 ]), and then we normalize them by the width of the screen. This way we are going to have uniform speed across X and Y axis, when we move our camera. Z value defines FOV of the camera - the bigger it is, the more zoomed in the view will be. Thus for every pixel we get a vector that specifies that ray direction for the pixel.
 
-Now we need to define the camera's coordinate system, whose unit vectors will define the rotation that we need to perform on our rays:
+The rays need to be transformed to aligh with camera's view direction. For the we are going to create a rotation matrix that will transform rays defined in wolrds coordinates to rays defined in camera's coordinates:
 
 ```glsl
 // Orthonormal vectors of the view transformation
@@ -21,7 +20,7 @@ vy = normalize( cross( vx, vz ) );
 mat3 m = mat3( vx, vy, vz );
 ```
 
-In camera's coordinate system, Z axis will point in the `view` direction, Y axis in the `Up` direction, and X axis will be perpendicular to the Y and Z. We normalize all vectors to be sure they are `1` in length.   
+Camera is defined by its `view direction` and `up` vector. Camera's coordinate system is then defined as follows: Z axis will point in the `view direction`, X axis is perpendicular to the `up` and `view direction` vectors, and Y axis will be perpendicular to the X and Z. We normalize all vectors and pack them into matrix - this will be our rotation matrix.   
 
 Now we apply camera's rotation to our rays:
 
@@ -29,16 +28,51 @@ Now we apply camera's rotation to our rays:
 rd = normalize( m * rd );
 ```
 
-An intuitive explanation, as to how this rotation work is we assume are rays are defined in camera's local coordinate system. What we need is to find the coordinates of our rays in the world space. Orthonormal vectors, that define camera's coordinate system, are all defined in world space coordinates. So to find, for example, the X coordinate of our ray in the world space, we just need to find the contribution of each if its components( defined in camera's local space ) to the X coordinate in the world space. We multiply each component by the X value of its corresponding orthonormal vector and sum them together getting the X coordinate in the world space for our vector. Other axises are done in the same way.
-
 Here are a few resources to help with understanding:
 - [Fundamentals of Computer Graphics]
 - [Confused with Coordinate Transformations] 
 - [Computer Graphics Chapter – 7 (part - B)]
 
-### Background
+### 2. Background
 
-To draw a plane, we need to find the point of intersection between our ray and the plane. The formula can be derived analitically and translated directly to code:
+We define a seperate function to draw background:
+```glsl
+vec3 draw_background
+(
+  in vec3 ro,
+  in vec3 rd
+)
+{
+  vec3 final_color = vec3( 0.0 );
+
+  // ...
+
+  return final_color;
+}
+```
+
+#### 2.1. Color
+The color will be a symmetrical gradient in the Y direction, that starts at 0.0 and ends at 1.0. We smooth out the Y value for a softer change.
+```glsl
+vec3 bgcol( in vec3 rd )
+{
+  return mix
+  ( 
+    vec3( 0.01 ), 
+    vec3( 0.336, 0.458, 0.668 ), 
+    smoothstep( 1.0, 0.0, abs( rd.y ) ) 
+  );
+}
+```
+
+#### 2.2. Plane
+The plane is defined by its normal, any point on the plane, and to not stretch to infinity, we will clap it in [ -12.0, 12.0 ] range:
+```glsl
+float plane_size = 12.0;
+vec3 plane_normal = vec3( 0.0, 1.0, 0.0 ); // Normal of the plane
+vec3 p0 = PLANE_P; // Any point on the plane
+```
+To draw a plane, we need to find a point of intersection between our ray and the plane. The formula can be derived analitically and translated directly to the code:
 
 ```glsl
 float raytrace_plane
@@ -63,38 +97,51 @@ Links:
 
 Then we call it like this:
 ```glsl
-float plane_t = raytrace_plane( ro, rd, plane_normal, p0 );
+float plane_t = raytrace_plane( ro, rd, plane_normal, p0 ); // Distance to the plane
 ```
 
 If `plane_t` is bigger than 0.0, then we got a hit in a positive direction of our ray.
-We will limit the size of our plane, by only drawing if X and Z coordinates are in certain bounds:
+
 ```glsl
-vec3 draw_background
-(
-  in vec3 ro,
-  in vec3 rd
-)
+float plane_t = raytrace_plane( ro, rd, plane_normal, p0 );
+
+if( plane_t > 0.0 )
 {
-  float plane_size = 12.0;
-  vec3 plane_normal = vec3( 0.0, 1.0, 0.0 ); // Normal of the plane
-  vec3 p0 = PLANE_P; // Any point on the plane
-
-  float plane_t = raytrace_plane( ro, rd, plane_normal, p0 );
-
-  if( plane_t > 0.0 )
+  vec3 plane_hit = ro + plane_t * rd;
+  vec2 uv = abs( plane_hit.xz )
+  if all( uv <= vec2f( plane_size ) )
   {
-    vec3 plane_hit = ro + plane_t * rd;
-    vec2 uv = abs( plane_hit.xz )
-    if all( uv <= vec2f( plane_size ) )
-    {
-      // Color the plane
-      // ...
-    }
+    // Color the plane
+    // ...
   }
 }
 ```
 
-The light will be a point light, and it will have light attenuation based on the distance from the light. We will use a simple [Bling-Phong reflection model]:
+For a better look, we will define a `blur_radius` and smothly mix the color of the plane with black color( no color ) to get a nice circular area:
+```glsl
+float blur_radius = 10.0;
+
+// ...
+
+if all( uv <= vec2f( plane_size ) )
+{
+  vec3 plane_color = vec3( 1.0 );
+  final_color = mix
+  ( 
+    plane_color, 
+    final_color, 
+    smoothstep
+    ( 
+      blur_radius - 1.5,
+      blur_radius,
+      length( uv )
+    ) 
+  );
+}
+```
+#### 2.3. Lighting
+
+The light will be a point light whose position is define by the constant `LIGHT_SOURCE`, and it will have light attenuation based on the distance from the light. We will use a simple [Bling-Phong reflection model]:
 ```glsl
 // Calculate the distance to the light source
 float r = length( LIGHT_SOURCE - plane_hit );
@@ -103,10 +150,11 @@ float attenuation = LIGHT_POWER / ( r * r );
 
 // Direction to the light source
 vec3 light_dir = normalize( LIGHT_SOURCE - plane_hit );
+// Amount of light that hits the surface
 float LdotN = saturate( dot( light_dir, plane_normal ) );
 // Half vector between the view direction and the light direction
 vec3 H = normalize( light_dir - rd );
-// Adds a specular reflection
+// Specular reflection
 float phong_value = pow( saturate( dot( plane_normal, H ) ), 16.0 ) * 0.1;
 
 // Diffuse color of the plane
@@ -117,83 +165,19 @@ vec3 plane_color = ( LdotN * diff_color + phong_value );
 plane_color *= attenuation;
 ```
 
-We also will smooth out the edges of the plane, to make it look like a disk that slowly fades away:
-```glsl
-float plane_size = 12.0;
-float blur_radius = 10.0; // New
-vec3 plane_normal = vec3( 0.0, 1.0, 0.0 );
-
-// ...
-
-if( plane_t > 0.0 )
-{
-  // ...
-
-  if( all( lessThanEqual( uv, vec2( plane_size ) ) ) )
-  {
-    // ...
-
-    final_color = mix
-    ( 
-      plane_color, 
-      final_color, 
-      smoothstep
-      ( 
-        blur_radius - 1.5,
-        blur_radius,
-        length( uv )
-      ) 
-    );
-  }
-}
-```
-
-I decided to use [Gamma correction] on the background only, which is usually done for the final color of the scene. The reason for the is because the plane looks nicer, but everything else isn't:
+Lastly we will use [Gamma correction] on the background, to make colors appear better
 
 ```glsl
 return pow( final_color, vec3( 1.0 / 2.2 ) );
-```
-
-To not have a pitch black backgroun, we'll take the background color function from the [Cube lines Shader]:
-```glsl
-vec3 bgcol( in vec3 rd )
-{
-  return pow(mix
-  ( 
-      vec3( 0.01 ), 
-      vec3( 0.336, 0.458, 0.668 ), 
-      1.0 - pow( abs( rd.y ), 1.3 ) 
-  ), vec3( 2.0 ));
-}
-```
-
-And add it to out caclulations:
-
-```glsl
-vec3 draw_background
-(
-  in vec3 ro,
-  in vec3 rd
-)
-{
-  vec3 final_color = vec3( 0.0 );
-  float plane_size = 12.0;
-  float blur_radius = 10.0;
-  vec3 plane_normal = vec3( 0.0, 1.0, 0.0 ); // Normal of the plane
-  vec3 p0 = PLANE_P; // Any point on the plane
-  final_color = bgcol( rd ); // New
-
-  // ...
-}
 ```
 
 <p align="center">
 <img src="assets/Background_Plane.png" width="600px">
 </p>
 
-### Box
+### 3. Box
 
-Again we are going to use an analitically derived intersection between the ray and an axis aligned box from here [Intersectors]. The function below is slightly modified and is taken from the [Strange Crystal Shader], with a little explanation from me.
+We are goin to draw an axis aligned box, that is defined by its `dimension` using an analitically derived intersection between the ray and an axis aligned box from here [Intersectors]. The function below is slightly modified:
 ```glsl
 float raytrace_box
 (
@@ -243,27 +227,29 @@ float raytrace_box
 }
 ```
 
-It's going to return the distance to the hit point from the `ro` and write the normal of the box in `normal` parameter
+The function returns the distance to the hit point from the `ro` and writes the normal of the box in `normal` vector;
 
-Back to the `main` function, we find the intersection with the box and color it if there was a hit:
+In the `main` function, same as with the plane, we find the intersection with the box and color it if there was a hit:
 ```glsl
+const vec3 BOX_DIMENSIONS = vec3( 0.75, 1.25, 0.75 );
+
+// ...
+
 vec3 box_normal;
 float box_t = raytrace_box( ro, rd, box_normal, BOX_DIMENSIONS, true );
 
 if( box_t > 0.0 )
 {
-  // Nullify the color to not have a fully transparent box
   final_color = vec3( 0.0 );
-  // Intersection point on the box
+  // Intersection point with the box
   vec3 ro = ro + box_t * rd;
 
   // Color Here
 }
 ```
 
-At the edges we are going to add a dark smooth stitch to cover the transition between the sides:
+The edges are going to have a dark smooth stitch to cover the transition between the sides. To calculate the stitche, we need to know the distatnce to the each edge
 ```glsl
-const vec3 BOX_DIMENSIONS = vec3( 0.75, 1.25, 0.75 );
 // Distance to the edges
 const vec3 BOX_DTE = vec3
 ( 
@@ -271,8 +257,10 @@ const vec3 BOX_DTE = vec3
   length( BOX_DIMENSIONS.xy ), 
   length( BOX_DIMENSIONS.yz ) 
 );
+```
 
-/// ...
+As the position of the hit point approaches the edges, we take a smoothstep of the distance to the edge that we will use to color our box. The smooststep is caclulated for all edges at once, and as a result we take the value for the closest edge:
+```glsl
 
 // Paint the edges in black with a little blur at transition
 float smooth_box_edge( in vec3 ro )
@@ -287,20 +275,15 @@ float smooth_box_edge( in vec3 ro )
   return max( edge_blur.x, max( edge_blur.y, edge_blur.z ) );
 }
 ```
-
-Box is symmetrical and is centered at the origin, so we can store the distance to the edges( three of them ) in `BOX_DTE` constant. The function then applies a smoothstep some dinstance away form the edge and towards the edge, depending on the current distance of the hit point. We then return the maximum across all three edges, to only cover the closest edge.
-
-Add the color in the `main` function
+The the main function we smooth the color of the box with the color of the edge 
 ```glsl
 const vec3 BOX_EDGE_COLOR = vec3( 0.0 );
+
 // ...
 
-if( box_t > 0.0 )
-{
-  // ...
-  float edge_t = smooth_box_edge( ro );
-  final_color = mix( final_color, BOX_EDGE_COLOR, edge_t ) ;
-}
+float edge_t = smooth_box_edge( ro );
+final_color = mix( final_color, BOX_EDGE_COLOR, edge_t ) ;
+
 ```
 
 If you paint the box white, you'll get this.
@@ -309,10 +292,11 @@ If you paint the box white, you'll get this.
 <img src="assets/Box_Edge.png" width="600px">
 </p>
 
-For the shadow we are going to use Inigo Quilez's implementation [Box - fake soft shadow Shader]( Article [Box functions] ). Copy them to our code:
+#### 4. Shadow
+The shadow will be done using Inigo Quilez's implementation for the soft shadows from [Box functions]:
 
 ```glsl
-float segShadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
+float seg_shadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
 {
   float k1 = 1.0 - rd.x * rd.x;
   float k4 = ( ro.x - pa.x ) * k1;
@@ -335,7 +319,7 @@ float segShadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
 
 // https://iquilezles.org/articles/boxfunctions/
 // https://www.shadertoy.com/view/WslGz4
-float boxSoftShadow
+float box_soft_shadow
 ( 
   in vec3 ro, 
   in vec3 rd,
@@ -364,10 +348,9 @@ float boxSoftShadow
 }
 ```
 
-Then we use them in a `draw_background` function, right before the smoothing of the plane:
+In a `draw_background` function, right before the smoothing of the plane, we calculate the shadow factor, smooth it out to get lighter shadows, and multiply it by the color of our plane:
 ```glsl
-// New
-float shad = boxSoftShadow
+float shad = box_soft_shadow
 ( 
   plane_hit, 
   normalize( LIGHT_SOURCE - plane_hit ), 
@@ -375,18 +358,6 @@ float shad = boxSoftShadow
   2.0 
 );
 plane_color *= smoothstep( -0.2, 1.0, shad );
-
-final_color = mix
-( 
-  plane_color, 
-  final_color, 
-  smoothstep
-  ( 
-    blur_radius - 1.5,
-    blur_radius,
-    length( uv )
-  ) 
-);
 ```
 The result:
 
@@ -394,13 +365,13 @@ The result:
 <img src="assets/Box_Soft_Shadow.png" width="600px">
 </p>
 
-### Box surface
+### 5. Box surface
 
-For the box's surface I'm going to use water noise from [Seascape Shader]. Just copy and paste function we are going to use. I renamed the in the following manner:
-- `sea_octave` -> `water_octave`
-- `map` -> `water_noise`
-- `noise` -> `perlin_noise2dx1d` ( because it's [Perlin Noise], that takes 2d vector as input and returns a number, or 1d vector )
-- `hash` -> `hash2dx1d`
+We will cover the surface with a water like noise, that we then can use to calculate normals and use them in calculation for our reflected and refracted lights.
+
+#### 5.1. Water noise
+
+To create a noise we need a hashing function - a map from one value to another, in our case `vec2` to `float`:
 
 ```glsl
 float hash2dx1d( in vec2 p ) 
@@ -408,7 +379,11 @@ float hash2dx1d( in vec2 p )
 	float h = dot( p, vec2( 127.1,311.7 ) );	
   return fract( sin( h ) * 43758.5453123 );
 }
+```
+The idea is to shuffle the input in any way you like uing prime numbers and then turn it into a number in range [ 0.0, 1.0 ] that you then can transform in any range you like. The above is taken from [Random / noise functions for GLSL].  
 
+With a hash function we can create [Perlin Noise]:
+```glsl
 float perlin_noise2dx1d( in vec2 p )
 {
   vec2 i = floor( p );
@@ -422,20 +397,33 @@ float perlin_noise2dx1d( in vec2 p )
 
   return noise * 2.0 - 1.0;
 }
+```
 
-float water_octave( in vec2 uv_in, in float choppy )
+The code splits the `p` domain int a grid, hash all 4 corners of the grid and mixes them together.  
+Now lets create the base of our water noise:
+
+```glsl
+float water_octave( in vec2 uv, in float choppy )
 {
-  // Offset the uv value in y = x direction by the noise value
-  vec2 uv = uv_in + perlin_noise2dx1d( uv_in );
+  // Shift the uv value in y = x direction by the noise value
+  uv += perlin_noise2dx1d( uv );
   vec2 s_wave = 1.0 - abs( sin( uv ) );
   vec2 c_wave = abs( cos( uv ) );
-  // Smooth out the waves
   s_wave = mix( s_wave, c_wave, s_wave );
-  // Shuffle the resulting values, I guess
-  // Minus from 1.0 - for the wave to cave in
   return pow( 1.0 - pow( s_wave.x * s_wave.y, 0.65 ), choppy );
 }
+```
+The technique is called [Domain warping].   
+First we shift the `uv` domain in x = y direction, to add randomness to it. Taking `sin` of `uv` will create a plane of black and white circles with grey in between. `abs` turns black circles to white, adding a sort of rigid look. Subtructing from `1.0` inverses the plane.  
+Same process with `cos`, excepth without inversion. To noises are then mixed together. In the result we combine both coordinates and raise them to some power to add more contrast. The process is shown on the image below:
 
+<p align="center">
+<img src="assets/Water_Octave.png" width="600px">
+</p>
+
+Having a base noise, we can use another technique [Fractional Brownian Motion], to combine the noise we created with itself at different frequences:
+
+```glsl
 // Fbm based sea noise
 float water_noise( in vec2 p )
 {
@@ -443,16 +431,14 @@ float water_noise( in vec2 p )
   float amp = 0.6;
   float choppy = 4.0;
   mat2 octave_m = mat2( 1.6, 1.2, -1.2, 1.6 );
-
   p.x *= 0.75;
-  
-  float d = 0.0;
+
   float h = 0.0;    
 
   for( int i = 0; i < 5; i++ ) 
   { 
     // Mix two octaves for better detail
-    d = water_octave( ( p + iTime / 2.0 ) * freq, choppy ) + water_octave( ( p - iTime / 2.0 ) * freq, choppy );
+    float d = water_octave( ( p + iTime / 2.0 ) * freq, choppy ) + water_octave( ( p - iTime / 2.0 ) * freq, choppy );
     // Add the height of the current octave to the sum
     h += d * amp;        
     // Deform p domain( rotate and stretch)
@@ -466,15 +452,11 @@ float water_noise( in vec2 p )
 }
 ```
 
-The `water_noise` returns just the height, and not the difference like in the original. Other than that, the function are almost identical.
-`hash2dx1d` function takes 2d vector and encodes it in 1d value, as if hashing the vector.
+We define some initial state with a starting amplitude, frequence, choppiness. `octave_m` is a rotation and scale matrix use to further distort the space. At every iteration, we sample the base noise as the current frequency, scale it by the current implitude and add it to the result. Amplitude, frequence, p domain are then updated and we do another iteration:
 
-The noise above uses two technique: [Fractional Brownian Motion] and [Domain warping].  
-With FBM you apply the same noise several times, by increasing the frequency and decreasing the amplitute at each iteration. This way you can add smaller details to your noise.
-And with domain warping, you just deform your space in any way you like: move, rotate, scale, apply some function, apply some noise.
-
-From the above example, for the water noise, the coordinates are first shifted by `perlin_noise2dx1d( uv )`, then transformed by `sin` and `cos` functions, smoothed using `smoothstep` and the result of previous deformation, and then raised to the power, while shuffling the values to get the final result.  There are no rules as to what is the right way to deform, it is your freedom to deform it any way you like.  
-Lasly the noise is sampled and combined at different frequencies with different amplitudes to get the final result.
+<p align="center">
+<img src="assets/Water_Noise.png" width="600px">
+</p>
 
 Links:
 - [Perlin Noise]
@@ -482,11 +464,11 @@ Links:
 - [Fractional Brownian Motion]
 - [Domain warping]
 
-For our task, we need to caclulate the normal at the current position from the noise. The noise takes XZ coordinates, returning a number, that we will treat as a Y coordinates, making our noise a sort of height map.  
-Taking a derivative in Z direction df/dz gives us a slope in that direction. Putting it into a vector ( 0.0, df/dz, 1.0 ) gives us the direction of the change in Z direction. Doing the same for X - ( 1.0, df/dx, 0.0 ), we get to perpendicular to each other vectors, whose cross product ( -dfdx, 1.0, -dfdz ) will give us the normal at that position.  
-Maybe a video from Inigo Quilez will explain it better [Painting a Landscape with Maths]
+#### 5.2. Normal mapping
 
-In code it is implemented as follows:
+Assuming our noise lies in XZ plane, to get the normal at any position we need to take the derivative in Z and X direction to get the slope in those directions. Cross product of these to vectors ( 0.0, df/dz, 1.0 ), ( 1.0, df/dx, 0.0 ) will give as a normal of the surface in Y direction. More on this here: [Painting a Landscape with Maths]
+
+
 ```glsl
 const float WATER_INTENSITY = 0.5;
 
@@ -504,10 +486,15 @@ vec3 water_normal( in vec2 p )
 ```
 By increasing `WATER_INTENSITY`, you will decrease the Y component's influence, and hence increase the deviation from the `up` direction of the normal( as if increasing size of the waves ). `e` parameter is the small change in X or Z direction.
 
-The normals were calculated in their local space, where Y points up, X and Z point forward and to the right - a so called tangent space. To put these normals on the box's faces we need to do what is called [Normal Mapping] - transformation from the tangent space, to a different coordinate space, which is build around the surface normal of the object( which in concept is very similiar to what we did with view rays in the beginning );
+The normals now need to be reoriented to point in the direction of the box's normal. This process is called [Normal Mapping] and is very similiar to the transformation we did for rays directions.
 
-So first we need to get orthonormal unit vectors that describe the normal at each of the box's faces. In the main function. Since we deal with an axis aligned box, the normals are always parallel to one of the axis, so we can deal with all cases in a single equation shown below:
+For an axis aligned box, all normals point in the direction of one of the axis. The other two vectors( tangent and bitangent ) will be vectors pointing in the direction of the other two axises.
+
 ```glsl
+const vec2 M = vec2( 1.0, 0.0 );
+
+// ...
+
 if( box_t > 0.0 )
 {
   // ...
@@ -519,7 +506,7 @@ if( box_t > 0.0 )
 }
 ```
 
-For the water noise we need 2d vector, which we are going to get from the hit point position on the box. If the face is perpendicular to the Z axis, then we will use XY coordinates. If it is perpendicular to the Y axis - XZ, and so on:
+To sample the nosie we need to get the uv coordinates for the box's face.
 
 ```glsl
 const float INSIDES_NOISE = 0.3
@@ -528,18 +515,21 @@ vec2 uv = ro.xy * w.z + ro.xz * w.y + ro.yz * w.x;
 uv *= INSIDES_NOISE
 ```
 
-I added the `INSIDES_NOISE` constant to easily control the detail in noise.  
-Now we get our normal and transform it using our `TBN` matrix:
+The `INSIDES_NOISE` constant allows to control the scale of the noise.  
 
 ```glsl
 vec3 n = normalize( TBN * water_normal( uv ) );
 ```
 
+We get the normal from the noise and trasform it using `TBN` matrix.
+
 Links:
 - [Painting a Landscape with Maths]
 - [Normal Mapping]
 
-Using the normal we can calculate the refracted and reflected rays, using builtin function. To calculate the refracted ray, we need to know the [Refractive Index] if both mediums
+#### 5.3. Surface reflection
+
+Using the normal we can calculate the refracted and reflected rays, using builtin functions. To calculate the refracted ray, we need to know the [Refractive Index] of both mediums
 
 ```glsl
 const float airRI = 1.0;
@@ -551,10 +541,30 @@ const float iorAtoB = airRI / boxRI;
 const float iorBtoA = boxRI / airRI;
 
 // ...
+
 if( box_t > 0.0 )
 {
   // ...
 
+  vec3 refractedRD = refract( rd, n, iorAtoB );
+  vec3 reflectedRD = normalize( reflect( rd, n ) );
+  
+  // ...
+}
+```
+
+The light splits into two, meaning its energy gets devided. We use Fresnel to get the amount of light reflected `F`, and from that the amount of light refracted `1.0 - F`. For the Fresnel we need to know the critical reflection angle - an angle under which the light gets fully reflected. And also the Fresnel at 0 degrees incidence from the normal:
+```glsl
+const vec3 F0 = vec3( pow( abs( ( boxRI - airRI ) ) / ( boxRI + airRI ), 2.0 ) );
+const float CRITICAL_ANGLE_ATOB = sqrt( max( 0.0, 1.0 - iorBtoA * iorBtoA ) );
+const float CRITICAL_ANGLE_BTOA = sqrt( max( 0.0, 1.0 - iorAtoB * iorAtoB ) );
+// ...
+
+if( box_t > 0.0 )
+{
+  // ...
+  // New
+  vec3 F = fresnel( prev_rd, n, F0, CRITICAL_ANGLE_BTOA );
   vec3 refractedRD = refract( rd, n, iorAtoB );
   vec3 reflectedRD = normalize( reflect( rd, n ) );
   
@@ -565,30 +575,11 @@ if( box_t > 0.0 )
 Links:
 - [Refractive Index]
 - [List of refractive indices]
-
-Before we go further, we also need to calculate the Freshel. It will tell us how much light is reflected `F` and how much is refracted `1.0 - F`. You can learn more about it here:
 - [PBR Theory]
 - [Computer Graphics Tutorial - PBR]
 - [Microfacet BRDF]
 
-```glsl
-const float CRITICAL_ANGLE_ATOB = sqrt( max( 0.0, 1.0 - iorBtoA * iorBtoA ) );
-const float CRITICAL_ANGLE_BTOA = sqrt( max( 0.0, 1.0 - iorAtoB * iorAtoB ) );
-// ...
-
-if( box_t > 0.0 )
-{
-  // ...
-  vec3 F = fresnel( prev_rd, n, F0, CRITICAL_ANGLE_BTOA ); // New
-  vec3 refractedRD = refract( rd, n, iorAtoB );
-  vec3 reflectedRD = normalize( reflect( rd, n ) );
-  
-  // ...
-}
-```
-`CRITICAL_ANGLE_...` is the angle, at which happens full reflection. can be calculation from [Refractive Index] of both mediums.  
-
-For the refracted ray, we are goind to define a new function `draw_insides` that will handle the contents of the box, and for the reflected ray we simple call the `draw_background` function with the new ray direction. Both colors we then multiply be the fresnel.
+For the refracted ray, we are going to define a new function `draw_insides` that will handle the contents of the box, and for the reflected ray we simple call the `draw_background` function with the new ray direction. Both colors we then multiply be the fresnel.
 
 ```glsl
 if( box_t > 0.0 )
@@ -608,14 +599,14 @@ if( box_t > 0.0 )
 If `draw_insides` return black, then we will get the following image:
 
 <p align="center">
-<img src="assets/Box_Faces.png" width="600px">
+<img src="assets/Box_Surface.png" width="600px">
 </p>
 
-### Box indsides
+### 6. Box's indsides
 
-For the insides, we will go with the cosmic theme. So first we are goint to draw some stars.
+For the insides, we will go with the cosmic theme. So first we are going to draw some stars.
 
-#### Stars
+#### 6.1. Stars
 We are going to draw stars on the sphere that is very far away. For this we will use are ray direction vector to get the `phi` and `theta` angles of the sperical coordinates. Then we will normalize and shift them to get `uv` coordinates in range from 0.0 to 1.0;
 
 ```glsl
@@ -1138,3 +1129,5 @@ Finally we update the state and end the iteration. Resulting color is return and
 [Coding Adventure: Ray Marching]: https://www.youtube.com/watch?v=Cp5WWtMoeKg
 
 [An introduction to Raymarching]: https://youtu.be/khblXafu7iA
+
+[Random / noise functions for GLSL]: https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
