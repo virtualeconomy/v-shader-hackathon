@@ -1,3 +1,9 @@
+This tutorial is a detailed guide on creating a shader using ray tracing techniques to render a 3D scene. It is designed for those interested in computer graphics and shader programming, providing a step-by-step approach to building a complex visual effect. The tutorial begins with the basics of ray generation, explaining how to create rays from a camera's position and transform them to align with the camera's view direction using a rotation matrix.
+
+As the tutorial progresses, it delves into rendering various elements of the scene, such as a background with a gradient, a plane with lighting effects, and an axis-aligned box with smooth edges and soft shadows. These sections cover essential concepts like lighting models, color gradients, and intersection calculations, providing code snippets and explanations to help readers understand the implementation.
+
+The tutorial also explores advanced topics, including creating water-like noise for surface reflections, implementing normal mapping, and calculating surface reflections using Fresnel equations. Additionally, it covers rendering the inside of the box with a cosmic theme, featuring stars and a nebula created using ray marching and 3D noise. Throughout the guide, visual examples and links to further resources are provided to enhance understanding and encourage further exploration in the field of shader development.
+
 
 ### 1. Basic setup
 
