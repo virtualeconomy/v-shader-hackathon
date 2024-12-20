@@ -9,7 +9,7 @@ vec3 rd = vec3( ( fragCoord * 2.0 - iResolution.xy ) / iResolution.x, 0.7 );
 
 We shift the fragment's screen space position to be centered at the  origin( [ 0.0, 0.0 ]), and then we normalize them by the width of the screen. This way we are going to have uniform speed across X and Y axis, when we move our camera. Z value defines FOV of the camera - the bigger it is, the more zoomed in the view will be. Thus for every pixel we get a vector that specifies that ray direction for the pixel.
 
-The rays need to be transformed to aligh with camera's view direction. For the we are going to create a rotation matrix that will transform rays defined in wolrds coordinates to rays defined in camera's coordinates:
+The rays need to be transformed to align with camera's view direction. We are going to create a rotation matrix that will transform rays defined in wolrds coordinates to rays defined in camera's coordinates:
 
 ```glsl
 // Orthonormal vectors of the view transformation
@@ -607,15 +607,17 @@ If `draw_insides` return black, then we will get the following image:
 For the insides, we will go with the cosmic theme. So first we are going to draw some stars.
 
 #### 6.1. Stars
-We are going to draw stars on the sphere that is very far away. For this we will use are ray direction vector to get the `phi` and `theta` angles of the sperical coordinates. Then we will normalize and shift them to get `uv` coordinates in range from 0.0 to 1.0;
+The stars will be drawn on a sphere very far away. The view direction will difine the position on the sphere by calculating `theta`( longitude ) and `phi`( latitude ) angles:
 
 ```glsl
-vec3 draw_stars( in vec3 rd_in )
+vec3 draw_stars( in vec3 rd )
 {
   vec3 final_color = vec3( 0.0 );
 
-  float phi = atan( rd_in.x, rd_in.z );
-  float theta = asin( rd_in.y );
+  // Latitude
+  float phi = atan( rd.x, rd.z );
+  // Longitute
+  float theta = asin( rd.y );
 
   // [ 1/2PI, 1/PI ]
   vec2 normalization = vec2( 0.1591, 0.3183 );
@@ -624,53 +626,83 @@ vec3 draw_stars( in vec3 rd_in )
   // ...
 }
 ```
-Here `atan` function returns an angle in range [ -PI, PI ], whose tangent = `x / z`. `asin` returns an angle in range [ -PI/2, PI/2 ], whose sin equals `y`.  
-Then we devide `phi` by `2PI` and `theta` by `PI`, to get the range [ -0.5, 0.5 ], that we then shift by 0.5, to finally get the `uv` coordinates in range [ 0.0, 1.0 ].  
+`atan` returns an angle in range [ -PI, PI ], whose tangent equals to `x / z`.  
+`asin` returns an angle in range [ -PI/2, PI/2 ], whose sin equals `y`.     
+To use this angles we normalize them deviding `phi` by `2PI` and `theta` by `PI`, to get the range [ -0.5, 0.5 ]. We make a shift by 0.5, to finally get the `uv` coordinates in range [ 0.0, 1.0 ].  
 
-Now we are going to devide our `uv` space into a grid, pick a random position inside the grid, shift it towards the middle, to make sure the star is fully inside to be drawn, and finally draw the star.  
-This process will be repeated several times, each time increasing the size of the grid( and consequently decreasing the size of the cell ) and the size of the stars, to make them look more chaotic. Here's our code for the latter part:
+`uv` represents a square in range [ 0.0, 1.0 ], that we can scale by some number and divide it into a grid. We would like to generate stars at different grid sizes with different parameters for stars, so we will take that logic to its own function:
+
 ```glsl
-vec3 draw_stars( in vec3 rd_in )
+vec3 generate_stars
+(
+  in vec2 uv,
+  in float grid_size
+)
 {
-  vec3 final_color = vec3( 0.0 );
+  uv *= grid_size;
 
-  float phi = atan( rd_in.x, rd_in.z );
-  float theta = asin( rd_in.y );
+  // ...
+}
+```
+The integer part of `uv` will be a `cell_id` and its fractional part will be coordinates local to that cell. To generate the stars position, we will feed cell's id to the `hash` function that will take `vec2` and return `vec2` - position of the star inside the cell. This way each cell will be assigned a star position.  
+The stars will also have a size, so we have to make sure the star fully fits inside the cell by shifting it by the amount it protrudes outside the cell:
 
-  // [ 1/2PI, 1/PI ]
-  vec2 normalization = vec2( 0.1591, 0.3183 );
-  vec2 uv = vec2( phi, theta ) * normalization + vec2( 0.5 );
-  float grid_size = 10.0;
-  float star_size = 0.07;
-  float ray_width = 0.005;
-  vec3 star_color = vec3( 1.0 );
+```glsl
+vec3 generate_stars
+(
+  in vec2 uv,
+  in float grid_size,
+  in float star_size // New
+)
+{
+  // ...
 
-  float star_size_change = 0.9;
-  float grid_size_change = 1.6;
+  vec2 cell_id = floor( uv );
+  vec2 cell_coords = fract( uv ) - 0.5;
+  vec2 star_coords = hash2dx2d( cell_id ) - 0.5;
+  star_coords -= sign( star_coords ) * max( vec2( star_size ) - vec2( 0.5 ) + abs( star_coords ), vec2( 0.0 ) );
 
-  // Big start are animated
-  for( int i = 0; i < 3; i++ )
-  {
-    final_color += generate_stars( uv, grid_size, star_size, ray_width, true );
-    star_size *= star_size_change;
-    grid_size *= grid_size_change;
-  }
-
-  star_size *= 0.8;
-
-  // Small stars are not animated
-  for( int i = 3; i < 6; i++ )
-  {
-    final_color += generate_stars( uv, grid_size, star_size, ray_width, false );
-    star_size *= star_size_change;
-    grid_size *= grid_size_change;
-  }
-
-  return final_color;
+  // ...
 }
 ```
 
-Inside the `generate_stars` function, we multiply `uv` coordinates by the grid size, and treat its whole part as `cell_id` and fractional part as `uv` coordinates within the cell:
+The coordinates are shifted to be centered at 0.0, because it makes caclulations simpler.  
+To create a `glow`, we will use an exponent of the distance to the star scaled by the size of the star. This will create a soft gradient that starts strong at the center of the start, and quickly fades away as  the distance increases.  
+To make the look more randmized, we will introduce the `brightness` parameter, that will affect the power of the `glow`. The brightness can be recieved, again, by using a hash function with a cell id:
+
+```glsl
+
+float remap
+( 
+  in float t_min_in, 
+  in float t_max_in, 
+  in float t_min_out, 
+  in float t_max_out, 
+  in float v 
+)
+{
+  float k = ( v - t_min_in ) / ( t_max_in - t_min_in );
+  return mix( t_min_out, t_max_out, k );
+}
+
+// ...
+
+{
+  // ...
+
+  vec2 delta_coords = abs( star_coords - cell_coords );
+  // Distance to the star from the cell center
+  float dist = length( delta_coords );
+  vec3 glow = vec3( exp( -5.0 * length( dist ) / ( star_size * 2.0 ) ) );
+
+  float brightness = remap( 0.0, 1.0, 0.5, 1.0, hash2dx1d( uv ) );
+
+  return glow * brightness;
+}
+```
+`remap` is the function that takes a value in one range, and converts it to another. In the example above, we remap brightness to the smaller range to not have stars too dark to be seen.  
+
+To seperate big stars from the small ones, we'll add an optical flare to the big ones. Using the distance to the star, the horizontal flare can be achieved by combining the smooth step in X direction based on the star's size and Y direction based on the flare's width. Vertical is done in the same manner, but with axises reversed:
 
 ```glsl
 vec3 generate_stars
@@ -678,66 +710,139 @@ vec3 generate_stars
   in vec2 uv,
   in float grid_size,
   in float star_size,
-  in float flares_width,
-  in bool twinkle
+  // New
+  in float flares_width, 
+  in bool with_flare
 )
 {
-  uv *= grid_size;
-  vec2 cell_id = floor( uv );
-  vec2 cell_coords = fract( uv ) - 0.5;
-  vec2 star_coords = hash2dx2d( cell_id ) - 0.5;
-  star_coords -= sign( star_coords ) * max( vec2( star_size ) - vec2( 0.5 ) - abs( star_coords ), vec2( 0.0 ) );
+
+  // ...
+
+  if( with_flare )
+  {
+    float flare_change = remap( -1.0, 1.0, 0.5, 1.0, sin( iTime * 3.0 + uv.x * uv.y ) );
+    float flares = smoothstep( flares_width, 0.0, delta_coords.x ) + smoothstep( flares_width, 0.0, delta_coords.y );
+    flares *= smoothstep( star_size * flare_change, 0.0, dist );
+    
+    glow = glow * flares;
+  }
+
+  // ...
+}
+```
+Flares will be animated using a remaped `sin` function with some arbitrary offset. An example of a star with and without flares:
+
+<p align="center">
+<img src="assets/Star_Example.png" width="600px">
+</p>
+
+Having a way to generate stars, we can run a loop to generate stars, and at the end of each iteration increase grid size and reduce star's size. Back in `draw_stars` we first initialize some state
+
+```glsl
+vec3 draw_stars( in vec3 rd )
+{
+  // ...
+
+  float grid_size = 10.0;
+  float star_size = 0.1;
+  float flares_width = 0.08 * star_size;
+  vec3 star_color = vec3( 1.0 );
+
+  float star_size_change = 0.7;
+  float grid_size_change = 2.0;
 
   // ...
 }
 ```
 
-We shift cell coordinates by 0.5, to center them at 0.0. We get the position of the star by hashing cell's id( mapping a 2d vector to another 2d vector in range [ 0.0, 1.0 ] ).
-
-Here we have some parameters, all are handpicked. Overall we have 6 iterations. They are devided into 2 parts, because bigger stars( first loop ) will have an animation, while smaller stars( smaller loop ) will not.  
-After each iteration, decrease the size of the start by `star_size_change` and increase the size of the grid by `grid_size_change`. `star_coords` needs to  be moved to make sure that the bounding box of the star is fully insdie the current grid cell size.
-
-The star's glow we will shape using an exponent that will depend on the distance to the center of the cell:
+Then we will run to loops: one will generate stars with flares, the other one without:
 
 ```glsl
-vec2 delta_coords = abs( star_coords - cell_coords );
-// Distance to the star from the cell coordinates
-float dist = length( delta_coords );
-vec3 glow = vec3( exp( -5.0 * length( dist ) / ( star_size * 2.0 ) ) );
-```
-
-We will randomize the star's brightness based on its cell id. The value that we get from the hash we remap to the range [ 0.5, 1.0 ]:
-
-```glsl
-float brightness = remap( 0.0, 1.0, 0.5, 1.0, hash2dx1d( uv + vec2( 404.045, -123.423) ) );
-```
-
-Lastly, as mentioned above, we have big stars that need to be animated. If `twinkle` is `true`, then we are going to add animated [Lens flare]s to the star.
-
-```glsl
-if( twinkle )
+// Big stars are animated
+for( int i = 0; i < 2; i++ )
 {
-  float twinkle_change = remap( -1.0, 1.0, 0.5, 1.0, sin( iTime * 3.0 + uv.x * uv.y ) );
-  float flares = 
-  smoothstep( flares_width, 0.0, delta_coords.x ) * smoothstep( star_size * twinkle_change, 0.0, dist ) +
-  smoothstep( flares_width, 0.0, delta_coords.y ) * smoothstep( star_size * twinkle_change, 0.0, dist );
-  
-  glow = glow * flares;
+  final_color += generate_stars( uv, grid_size, star_size, flares_width, true );
+  star_size *= star_size_change;
+  grid_size *= grid_size_change;
+}
+
+// Small stars are not animated
+for( int i = 2; i < 5; i++ )
+{
+  final_color += generate_stars( uv, grid_size, star_size, flares_width, false );
+  star_size *= star_size_change;
+  grid_size *= grid_size_change;
 }
 ```
-
-The flares can be created by combining the smoothstep in `x` and `y` directions of our `uv` coordinates. For the vertical flare, `x` defines its width and and `y` defines its height. Same with horizontal flare, but inverse.
-
-In the end we get this result:
 
 <p align="center">
 <img src="assets/Stars.png" width="600px">
 </p>
 
-#### Nebula
-I took the code for Nebula from this [Supernova remnant Shader] and the colors from [Helix nebula Shader]. We just copy the code we need and adapt it for our task.  
+#### 6.2. Nebula
+[Nebula] is a cloed that occupies some volume in space. To draw a volume of matter we are going to use a technique called [Ray marching]. But before we implement ray marching, we first need to create 3d noise that will define the look of our Nebula.
 
-First some utilities functions:
+##### 6.2.1. Nebula noise
+
+First we will define a base noise function that will take 3d vector as input and return a number. Just like with water noise, we are going to use FBM to add detail and Domain warping to change the shape of the noise:
+```glsl
+float spiral_noise( in vec3 p )
+{
+  float n = 0.0;	// Noise accumulator
+  float iter = 2.0;
+  float nudge = 0.9; // Size of perpendicular vector
+  float normalizer = 1.0 / sqrt( 1.0 + nudge * nudge ); // pythagorean theorem on that perpendicular to maintain scale
+  for( int i = 0; i < 8; i++ )
+  {
+    // Add sin and cos scaled inverse with the frequency
+    n += abs( sin( p.y * iter ) + cos( p.x * iter ) ) / iter;
+    // Rotate around Z axis by adding perpendicular and scaling down
+    p.xy += vec2( p.y, -p.x ) * nudge;
+    p.xy *= normalizer;
+
+    // Rotate around Y axis
+    p.xz += vec2( p.z, -p.x ) * nudge;
+    p.xz *= normalizer;
+    // Increase the frequency
+    iter *= 1.733733;
+  }
+  return n;
+}
+```
+
+As you can see, we have the usual loop for FBM with frequency and amplitude sharing the same variable `iter`. The sum of `sin` and `cos` will create a grid of black and white circles. Taking `abs` of the grid will leave only white circle with black fence seperating them, as you can see on the image below. The base noise is independent from the Z axis, so in 3d you can imagine infinite parallel tubes aligned with Z axis.
+
+<p align="center">
+<img src="assets/Spiral_Base.png" width="600px">
+</p>
+
+Once the noise is sampled, before beginning the new iteration we deform the `p` domain by first rotating around Z axis and then rotating it aroung the Y axis. We coud use a rotation matrix for that, but to make it cheaper, instead we add a perpendicular vector of length `nudge` to `p` and then scale the result, so the length does not change. This process is repeated 8 times and the noise is ready.
+
+Second part of the nebula's noise will be include 3d [Signed Distance Functions], specifally that of a Torus taken from here [3D SDFs].
+
+```glsl
+float sdf_torus( in vec3 p, in vec3 t )
+{
+  vec2 q = vec2( length2( p.xz ) - t.x, p.y );
+  return max( length( q ) - t.y, abs( p.y ) - t.z );
+}
+```
+
+`t.x` represents the main radius of the torus, `t.y` - the inner radius, `t.z` is a custom value that will clamp the distance field with XZ planes Y = ±t.z. By adding torus to our noise, we shape the final noise to resemble torus.
+
+```glsl
+float nebula_noise( in vec3 p )
+{
+  float result = spiral_noise( p.zxy * 0.5123 + 100.0 ) * 3.0;
+  result -= sdf_torus( p, vec3( 2.0, 1.8, 1.25 ) );
+  return result;
+}
+```
+For the spiral noise we deform the `p` domain one more time before passing it to the noise and then scaling the result by 3.0. The value are arbitrary and are chosen based on what looks better and how shapes are defined. We then subtruct the sdf of the torus - noise inside the torus will get bigger, and noise outsize will get smaller. This will be useful when draw it with a raymarching loop.
+
+##### 6.2.2. Raymarching
+
+Our Nebula will be contained inside the sphere, so we need a function that will find an intersection of the ray with the sphere ( [Intersectors] ):
 ```glsl
 vec2 raytrace_sphere( in vec3 ro, in vec3 rd, in vec3 ce, in float ra )
 {
@@ -749,97 +854,43 @@ vec2 raytrace_sphere( in vec3 ro, in vec3 rd, in vec3 ce, in float ra )
   h = sqrt( h );
   return vec2( -b - h, -b + h );
 }
-
-float length2( in vec2 p )
-{
-	return sqrt( p.x * p.x + p.y * p.y );
-}
-
-float length8( in vec2 p )
-{
-	p = p * p; 
-  p = p * p; 
-  p = p * p;
-	return pow( p.x + p.y, 1.0 / 8.0 );
-}
-```
-`raytrace_sphere` finds an intersection of a ray with a sphere.  
-
-Then we take the noise functions:
-
-```glsl
-float disk( in vec3 p, in vec3 t )
-{
-  vec2 q = vec2( length2( p.xy ) - t.x, p.z * 0.5 );
-  return max( length8( q ) - t.y, abs( p.z ) - t.z );
-}
-
-float spiral_noise( in vec3 p )
-{
-  float n = 0.0;	// noise amount
-  float iter = 2.0;
-  float nudge = 0.9; // size of perpendicular vector
-  float normalizer = 1.0 / sqrt( 1.0 + nudge * nudge ); // pythagorean theorem on that perpendicular to maintain scale
-  for( int i = 0; i < 8; i++ )
-  {
-    // add sin and cos scaled inverse with the frequency
-    n += -abs( sin( p.y * iter ) + cos( p.x * iter ) ) / iter;	// abs for a ridged look
-    // rotate by adding perpendicular and scaling down
-    p += vec3( vec2( p.y, -p.x ) * nudge, 0.0 );
-    p *= vec3( normalizer, normalizer, 1.0 );
-    // rotate on other axis
-    vec2 tmp = vec2( p.z, -p.x ) * nudge;
-    p += vec3( tmp.x, 0.0, tmp.y );
-    p *= vec3( normalizer, 1.0, normalizer );
-    // increase the frequency
-    iter *= 1.733733;
-  }
-  return n;
-}
-
-float nebula_noise( in vec3 p )
-{
-  float result = disk( p.xzy, vec3( 2.0, 1.8, 1.25 ) );
-  result += spiral_noise( p.zxy * 0.5123 + 100.0 ) * 3.0;
-  return result;
-}
 ```
 
-Again, the noise uses a combination of FBM and Domain warp techniques. Worth noting that the final noise is pushed away by the `disk` function, that return disk shaped figure like this: 
-
-<p align="center">
-<img src="assets/Disk.png" width="600px">
-</p>
-
-To draw the Nebula, a technique called [Ray marching]. For more look here
-- [Coding Adventure: Ray Marching]
-- [An introduction to Raymarching]
-
-First we setup some state:
+First we difine a function that will draw the Nebula:
 
 ```glsl
 vec3 draw_nebula( in vec3 ro, in vec3 rd )
 {
+  vec4 final_color = vec4( 0.0 );
   // Redius of the sphere that envelops the nebula
   float radius = 6.0;
-  // Max density
+  // Max allowed density
   float h = 0.1;
   float optimal_radius = 3.0;
   float k = optimal_radius / radius;
 
-  vec3 p;
-  vec4 final_color = vec4( 0.0 );
-  float local_density = 0.0;
-  float total_density = 0.0;
-  float weight = 0.0;
-
   // ...
+
+  return smoothstep( 0.0, 1.0, final_color.rgb );
 }
 ```
-`optimal_radius` is the radius I've found to be the best looking with other parameters defaulting to the original shader. `k` is scaler, that we will use to be able to change the size of the nebula easily.
+
+Since the noise is defined in 3d space, and I noticed that bounding sphere at radius 3.0 produces the best result, I wanted to be able to resize the sphere, without changing its contents. For that I add a `k` parameter that will properly scale values that need to be scaled down below. The smoothstep at the end is used to make colors more crisp.  
+As we move through the volume, we are going to keep track of some state, mainly `total_density` that will tell us how dense the medium is so far:
 
 ```glsl
 // ...
+
+vec3 p; // Current position inside the volume
+float local_density = 0.0; // Density at the position
+float total_density = 0.0; // Total accumulated density
+float weight = 0.0; // Contribution of the current point
+
+// ...
+```
+Now we need to find the intersection with the bounding sphere and if there is hit then we begin raymarching loop:
+
+```glsl
 vec2 vt = raytrace_sphere( ro, rd, vec3( 0.0 ), radius );
 // Itersection point when entering the sphere
 float tin = vt.x;
@@ -850,56 +901,84 @@ float t = max( tin, 0.0 );
 // If sphere was hit
 if( any( notEqual( vt, vec2( -1.0 ) ) ) )
 {
-  // ...
+  for( int i = 0; i < 64; i++ )
+  {
+    if( total_density > 0.9 || t > tout ) { break; }
+    // ...
+  }
 }
-```
 
-The nebula is contained withing a sphere, so we first check if the ray intersects the sphere.
+// ...
+```
+We clamp `t` to 0.0 in case we are inside the sphere, so we will marh from our current position. We also add some breaking conditions to the loop, like if `t` is bigger than `tout` then it means we left the sphere and no need to move forward.
+```glsl
+// ...
+
+// Current posititon inside the sphere
+p = ro + t * rd;
+p *= k;
+// Get the density at the current position
+float d = abs( nebula_noise( p * 3.0 ) * 0.5 ) + 0.07;
+
+// ...
+```
+We get the current position `p` and feed it to the noise. All the numbers around the calculation of the noise are arbitrary and serve only to better the result visually.  
+The Nebula will have a star at its center that radiates light in all directions. To get the color of the star, we first need to calculate the distance to the star, and then, using exponentiation, reduce the light contribution to the final color depending on the distance to the light source:
 
 ```glsl
-for( var i = 0; i < 64; i++ )
-{
-  if total_density > 0.9 || t > tout { break; }
+// Distance to the light soure
+float ls_dst = max( length( p ), 0.001 ); 
 
-  // Current posiiton inside the sphere
-  p = ro + t * rd;
-  p *= k;
-  // By feeding the 3d position we turn 3d domain into a 3d texture of densities
-  // So we get the density at the current position
-  let d = abs( nebula_noise( p * 3.0 ) * 0.5 ) + 0.07;
-
-  // Distance to the light soure
-  var ls_dst = max( length( p ), 0.001 ); 
-
-  // The color of light 
-  // https://www.shadertoy.com/view/cdK3Wy
-  let _T = ls_dst * 2.3 + 2.6;
-  var light_color = 0.4 + 0.5 * cos( _T + PI * 0.5 * vec3( -0.5, 0.15, 0.5 ) );
-  final_color += vec4f( vec3f( 0.67, 0.75, 1.0 ) / ( ls_dst * ls_dst * 10.0 ) / 80.0, 0.0 ); // star itself
-  final_color += vec4f( light_color / exp( ls_dst * ls_dst * ls_dst * 0.08 ) / 30.0, 0.0 ); // bloom
-
-  // ...
-
-}
+// The color of light 
+float _T = ls_dst * 2.3 + 2.6;
+vec3 light_color = 0.4 + 0.5 * cos( _T + PI * 0.5 * vec3( -0.5, 0.15, 0.5 ) );
+final_color.rgb += vec3( 0.67, 0.75, 1.0 ) / ( ls_dst * ls_dst * 10.0 ) / 80.0; // star itself
+final_color.rgb += light_color / exp( ls_dst * ls_dst * ls_dst * 0.08 ) / 30.0; // bloom
 ```
 
-And the main raymarching loop begins. We make a step forward, sample noise( with some modifications ), get the length to the light source( the star at the center), and draw the star with a bloom effect it creates. The colors are scaled greatly because they will be added at each iteration of the loop.
+`light_color` is defined as [Cosine gradient], to resemble a color scheme of the Nebula. The light's contribution exponentially decreases with distance. We add two colors: one for the `star` itself and one for `bloom`. As you can see, the `star` color falls very rapidly, adding a shiny sphere at the center, and bloom falls slower, lasting up to the edges of the sphere.
+
+Above a constant `h` was defined - a maxim local density. If density at the current position is less than `h`, then we add it to the calculations:
 
 ```glsl
 if( d < h )
 {
   // Compute local density 
   local_density = h - d;
-  // Compute weighting factor. The more density accumulated so far, the less weigth current local density has
+  // Compute weighting factor. The more density accumulated so far, the less weight current local density has
   weight = ( 1.0 - total_density ) * local_density;
   // Accumulate density
-  total_density += weight + 1.0 / 200.0;
+  total_density += weight * weight * 8.0  + 1.0 / 200.0;
   
-  // Transparancy falls, as the density increases
+  // ...
+}
+```
+
+As we stack layers on top of each other, we need a weight to decide how much each layer will contirbute to the final result, or in other words - decide its weight. In this case the weight is propotionally dependent on the `local_density` and inverse dependent on the `total_density`. Then the current layer is added to the `total_density` based on its weight. The weighing is arbitrary and depends on preferences.
+
+```glsl
+vec3 nebula_color( in float density, in float radius )
+{
+  // Color based on density alone, gives impression of occlusion within the media
+  vec3 result = mix( vec3( 1.0 ), vec3( 0.5 ), density );
+	
+  // Color added to the media
+  vec3 col_center = 7.0 * vec3( 0.8, 1.0, 1.0 );
+  vec3 col_edge = 1.5 * vec3( 0.48, 0.53, 0.5 );
+  result *= mix( col_center, col_edge, min( ( radius + 0.05 ) / 0.9, 1.15 ) );
+  return result;
+} 
+// ...
+
+if( d < h )
+{
+  // ...
+
+  // Transparency falls, as the density increases
   vec4 col = vec4( nebula_color( total_density, ls_dst ), total_density );
 
   // Emission. The densier the medium gets, the brighter it shines
-  final_color += final_color.a * vec4( final_color.rgb, 0.0 ) * 0.2;	   
+  final_color.rgb += final_color.a * final_color.rgb * 0.2;	  
   // Uniform scale density
   col.a *= 0.2;
   // Color by alpha
@@ -908,23 +987,25 @@ if( d < h )
   final_color = final_color + col * ( 1.0 - final_color.a );
 }
 ```
-
-Then we draw the Nebula's surroundings. If the density at the current point is less than a threshold - we do the calculations for the color. The color's opacity at the current position depends on the `total_density` meaning that the more dense the medium gets - the more opaque it becomes.
+`nebula_color` color calculates the color based on density and the distance from the center. Mixing colors based on density darkens colors where the medium is more dense, creating an occlusion effect within the medium. Colors are further darkened based on the distance from the center.  
+An emission effect is added by adding current color to itself based on the current total density and some arbitrary fuctor `0.2`. `col` is then reduced and blended with the current color.
 
 ```glsl
 total_density += 1.0 / 70.0;
 // Optimize step size near the camera and near the light source. The densier field - the bigger step
 t += max( d * 0.1 * max( min( ls_dst, length( ro * k ) ), 1.0 ), 0.01 ) / k;
 ```
+At the end of the loop, we artificially add more density to kep the medium more sparse and step `t` forward by some amount, based on the local density and the distance to the camera.
 
-As a final step we adjust the `t` to move forwrard, based on the local density and the closeness to the camera and light source.
+The final touch would be to add scattering based on total density. The more dense the medium, the more light scatters in all directions, reducing its brightness:
 
 ```glsl
 // Simple scattering
 final_color *= 1.0 / exp( total_density * 0.2 ) * 0.8;
-
-return smoothstep( vec3( 0.0 ), vec3( 1.0 ), final_color.rgb );
 ```
+
+
+
 
 Once the raymarching pass is done, scattering is applied and the color is smoothed.
 
@@ -1131,3 +1212,11 @@ Finally we update the state and end the iteration. Resulting color is return and
 [An introduction to Raymarching]: https://youtu.be/khblXafu7iA
 
 [Random / noise functions for GLSL]: https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+
+[Nebula]: https://spaceplace.nasa.gov/nebula/en/
+
+[Signed Distance Functions]: https://hackaday.com/2023/04/12/signed-distance-functions-modeling-in-math/
+
+[3D SDFs]: https://iquilezles.org/articles/distfunctions/
+
+[Cosine gradient]: http://dev.thi.ng/gradients/

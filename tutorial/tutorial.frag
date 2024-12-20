@@ -6,7 +6,7 @@
 // https://www.shadertoy.com/view/WslGz4
 // https://www.shadertoy.com/view/NslGRN
 
-precision highp float;
+//precision highp float;
 
 const float PI =3.14159265;
 // Refractive index of the air
@@ -80,19 +80,6 @@ vec2 raytrace_sphere( in vec3 ro, in vec3 rd, in vec3 ce, in float ra )
   if( h < 0.0 ) { return vec2( -1.0 ); } // no intersection
   h = sqrt( h );
   return vec2( -b - h, -b + h );
-}
-
-float length2( in vec2 p )
-{
-	return sqrt( p.x * p.x + p.y * p.y );
-}
-
-float length8( in vec2 p )
-{
-	p = p * p; 
-  p = p * p; 
-  p = p * p;
-	return pow( p.x + p.y, 1.0 / 8.0 );
 }
 
 float raytrace_box
@@ -351,30 +338,30 @@ vec3 water_normal( in vec2 p )
   return normal;
 }
 
-float disk( in vec3 p, in vec3 t )
+float sdf_torus( in vec3 p, in vec3 t )
 {
-  vec2 q = vec2( length2( p.xy ) - t.x, p.z * 0.5 );
-  return max( length8( q ) - t.y, abs( p.z ) - t.z );
+  vec2 q = vec2( length( p.xz ) - t.x, p.y );
+  return max( length( q ) - t.y, abs( p.y ) - t.z );
 }
 
 float spiral_noise( in vec3 p )
 {
-  float n = 0.0;	// noise amount
+  float n = 0.0;	// Noise accumulator
   float iter = 2.0;
-  float nudge = 0.9; // size of perpendicular vector
+  float nudge = 0.9; // Size of perpendicular vector
   float normalizer = 1.0 / sqrt( 1.0 + nudge * nudge ); // pythagorean theorem on that perpendicular to maintain scale
   for( int i = 0; i < 8; i++ )
   {
-    // add sin and cos scaled inverse with the frequency
-    n += -abs( sin( p.y * iter ) + cos( p.x * iter ) ) / iter;	// abs for a ridged look
-    // rotate by adding perpendicular and scaling down
-    p += vec3( vec2( p.y, -p.x ) * nudge, 0.0 );
-    p *= vec3( normalizer, normalizer, 1.0 );
-    // rotate on other axis
-    vec2 tmp = vec2( p.z, -p.x ) * nudge;
-    p += vec3( tmp.x, 0.0, tmp.y );
-    p *= vec3( normalizer, 1.0, normalizer );
-    // increase the frequency
+    // Add sin and cos scaled inverse with the frequency
+    n += abs( sin( p.y * iter ) + cos( p.x * iter ) ) / iter;
+    // Rotate around Z axis by adding perpendicular and scaling down
+    p.xy += vec2( p.y, -p.x ) * nudge;
+    p.xy *= normalizer;
+
+    // Rotate around Y axis
+    p.xz += vec2( p.z, -p.x ) * nudge;
+    p.xz *= normalizer;
+    // Increase the frequency
     iter *= 1.733733;
   }
   return n;
@@ -382,8 +369,8 @@ float spiral_noise( in vec3 p )
 
 float nebula_noise( in vec3 p )
 {
-  float result = disk( p.xzy, vec3( 2.0, 1.8, 1.25 ) );
-  result += spiral_noise( p.zxy * 0.5123 + 100.0 ) * 3.0;
+  float result = spiral_noise( p.zxy * 0.5123 + 100.0 ) * 3.0;
+  result -= sdf_torus( p, vec3( 2.0, 1.8, 1.25 ) );
   return result;
 }
 
@@ -392,7 +379,7 @@ vec3 nebula_color( in float density, in float radius )
   // Color based on density alone, gives impression of occlusion within the media
   vec3 result = mix( vec3( 1.0 ), vec3( 0.5 ), density );
 	
-  // color added to the media
+  // Color added to the media
   vec3 col_center = 7.0 * vec3( 0.8, 1.0, 1.0 );
   vec3 col_edge = 1.5 * vec3( 0.48, 0.53, 0.5 );
   result *= mix( col_center, col_edge, min( ( radius + 0.05 ) / 0.9, 1.15 ) );
@@ -474,15 +461,15 @@ vec3 draw_background
 // https://www.shadertoy.com/view/MdKXzc
 vec3 draw_nebula( in vec3 ro, in vec3 rd )
 {
+  vec4 final_color = vec4( 0.0 );
   // Redius of the sphere that envelops the nebula
-  float radius = 6.0;// + INNER_BOX_SCALE * 0.5 * smoothstep( -1.0, 1.0, sin( u.time * 0.7 ) );
+  float radius = 6.0;
   // Max density
   float h = 0.1;
   float optimal_radius = 3.0;
   float k = optimal_radius / radius;
 
   vec3 p;
-  vec4 final_color = vec4( 0.0 );
   float local_density = 0.0;
   float total_density = 0.0;
   float weight = 0.0;
@@ -501,11 +488,10 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
     {
       if( total_density > 0.9 || t > tout ) { break; }
 
-      // Current posiiton inside the sphere
+      // Current posititon inside the sphere
       p = ro + t * rd;
       p *= k;
-      // By feeding the 3d position we turn 3d domain into a 3d texture of densities
-      // So we get the density at the current position
+      // Get the density at the current position
       float d = abs( nebula_noise( p * 3.0 ) * 0.5 ) + 0.07;
 
       // Distance to the light soure
@@ -525,13 +511,13 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
         // Compute weighting factor. The more density accumulated so far, the less weigth current local density has
         weight = ( 1.0 - total_density ) * local_density;
         // Accumulate density
-        total_density += weight + 1.0 / 200.0;
+        total_density += weight * weight * 8.0 + 1.0 / 200.0;
         
         // Transparancy falls, as the density increases
         vec4 col = vec4( nebula_color( total_density, ls_dst ), total_density );
 
         // Emission. The densier the medium gets, the brighter it shines
-        final_color += final_color.a * vec4( final_color.rgb, 0.0 ) * 0.2;	   
+        final_color.rgb += final_color.a * final_color.rgb * 0.2;	   
         // Uniform scale density
         col.a *= 0.2;
         // Color by alpha
@@ -558,27 +544,27 @@ vec3 generate_stars
   in float grid_size,
   in float star_size,
   in float flares_width,
-  in bool twinkle
+  in bool with_flare
 )
 {
   uv *= grid_size;
   vec2 cell_id = floor( uv );
   vec2 cell_coords = fract( uv ) - 0.5;
   vec2 star_coords = hash2dx2d( cell_id ) - 0.5;
-  star_coords -= sign( star_coords ) * max( vec2( star_size ) - vec2( 0.5 ) - abs( star_coords ), vec2( 0.0 ) );
+  star_coords -= sign( star_coords ) * max( vec2( star_size ) - vec2( 0.5 ) + abs( star_coords ), vec2( 0.0 ) );
 
   vec2 delta_coords = abs( star_coords - cell_coords );
-  // Distance to the star from the cell coordinates
+  // Distance to the star from the cell center
   float dist = length( delta_coords );
   vec3 glow = vec3( exp( -5.0 * length( dist ) / ( star_size * 2.0 ) ) );
 
-  float brightness = remap( 0.0, 1.0, 0.5, 1.0, hash2dx1d( uv + vec2( 404.045, -123.423) ) );
+  float brightness = remap( 0.0, 1.0, 0.5, 1.0, hash2dx1d( cell_id ) );
 
-  if( twinkle )
+  if( with_flare )
   {
-    float twinkle_change = remap( -1.0, 1.0, 0.5, 1.0, sin( iTime * 3.0 + uv.x * uv.y ) );
-    float flares = smoothstep( flares_width, 0.0, delta_coords.x ) * smoothstep( star_size * twinkle_change, 0.0, dist ) +
-    smoothstep( flares_width, 0.0, delta_coords.y ) * smoothstep( star_size * twinkle_change, 0.0, dist );
+    float flare_change = remap( -1.0, 1.0, 0.5, 1.0, sin( iTime * 3.0 + uv.x * uv.y ) );
+    float flares = smoothstep( flares_width, 0.0, delta_coords.x ) + smoothstep( flares_width, 0.0, delta_coords.y );
+    flares *= smoothstep( star_size * flare_change, 0.0, dist );
     
     glow = glow * flares;
   }
@@ -586,36 +572,36 @@ vec3 generate_stars
   return glow * brightness;
 }
 
-vec3 draw_stars( in vec3 rd_in )
+vec3 draw_stars( in vec3 rd )
 {
   vec3 final_color = vec3( 0.0 );
 
-  float phi = atan( rd_in.x, rd_in.z );
-  float theta = asin( rd_in.y );
+  // Latitude
+  float phi = atan( rd.x, rd.z );
+  // Longitute
+  float theta = asin( rd.y );
 
   // [ 1/2PI, 1/PI ]
   vec2 normalization = vec2( 0.1591, 0.3183 );
   vec2 uv = vec2( phi, theta ) * normalization + vec2( 0.5 );
   float grid_size = 10.0;
-  float star_size = 0.07;
-  float flares_width = 0.005;
+  float star_size = 0.1;
+  float flares_width = 0.08 * star_size;
   vec3 star_color = vec3( 1.0 );
 
-  float star_size_change = 0.9;
-  float grid_size_change = 1.6;
+  float star_size_change = 0.7;
+  float grid_size_change = 2.0;
 
-  // Big start are animated
-  for( int i = 0; i < 3; i++ )
+  // Big stars are animated
+  for( int i = 0; i < 2; i++ )
   {
     final_color += generate_stars( uv, grid_size, star_size, flares_width, true );
     star_size *= star_size_change;
     grid_size *= grid_size_change;
   }
 
-  star_size *= 0.8;
-
   // Small stars are not animated
-  for( int i = 3; i < 6; i++ )
+  for( int i = 2; i < 5; i++ )
   {
     final_color += generate_stars( uv, grid_size, star_size, flares_width, false );
     star_size *= star_size_change;
