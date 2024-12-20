@@ -96,9 +96,9 @@ float raytrace_box
   // The result for each plane is stored in z, y, x coordinates of the `t` variable respectively.
   vec3 dr = 1.0 / rd;
   vec3 t = ro * dr;
-  // Now we need to offset the `t` to hit planes that build the box.
-  // If we take a point in the corner of the box and calculate the distance needed to travel from that corner
-  // to all three planes, we can then take that distance and subtruct/add to our `t`, to get the proper hit value.
+  // Now we need to offset the `t` to hit the planes that form the box.
+  // If we take a point at the corner of the box and calculate the distance needed to travel from that corner
+  // to all three planes, we can then take that distance and subtract from or add to our `t`, to get the proper hit value.
   vec3 dt = box_dimension * abs( dr );
   
   // Planes facing us are closer, so we need to subtruct

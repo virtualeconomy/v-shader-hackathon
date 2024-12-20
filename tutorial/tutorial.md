@@ -7,16 +7,16 @@ The tutorial also explores advanced topics, including creating water-like noise 
 
 ### 1. Basic setup
 
-For our shader we are going to use raytracing to draw the scene, so first we need to generate our rays. A ray has an origin and a direction. The origin will be our camera's position. From the origin we are going to shoot one ray per pixel in camera's view direction.  
-Before we shoot a ray from camera's position we generate ray direction in the following manner:
+For our shader, we are going to use ray tracing to render the scene. First we need to generate our rays. A ray has an origin and a direction. The origin will be our the position of our camera. From the origin, we will shoot shoot one ray per pixel in the camera's view direction.  
+Before shooting a ray from the camera's position, we generate ray direction in the following manner:
 
 ```glsl
 vec3 rd = vec3( ( fragCoord * 2.0 - iResolution.xy ) / iResolution.x, 0.7 );
 ```
 
-We shift the fragment's screen space position to be centered at the  origin( [ 0.0, 0.0 ]), and then we normalize them by the width of the screen. This way we are going to have uniform speed across X and Y axis, when we move our camera. Z value defines FOV of the camera - the bigger it is, the more zoomed in the view will be. Thus for every pixel we get a vector that specifies that ray direction for the pixel.
+We shift the fragment's screen space position to be centered at the  origin([ 0.0, 0.0 ]) and then normalize it by the width of the screen. This way we are going to have uniform speed across both the X and Y axes when we move our camera. Z value defines FOV of the camera - the larger it is, the more zoomed-in the view will be. Thus, for each pixel, we obtain a vector that specifies that ray direction for the pixel.
 
-The rays need to be transformed to align with camera's view direction. We are going to create a rotation matrix that will transform rays defined in wolrds coordinates to rays defined in camera's coordinates:
+The rays need to be transformed to align with camera's view direction. We are going to create a rotation matrix that will transform rays defined in wolrd coordinates to rays defined in camera coordinates:
 
 ```glsl
 // Orthonormal vectors of the view transformation
@@ -27,15 +27,15 @@ vy = normalize( cross( vx, vz ) );
 mat3 m = mat3( vx, vy, vz );
 ```
 
-Camera is defined by its `view direction` and `up` vector. Camera's coordinate system is then defined as follows: Z axis will point in the `view direction`, X axis is perpendicular to the `up` and `view direction` vectors, and Y axis will be perpendicular to the X and Z. We normalize all vectors and pack them into matrix - this will be our rotation matrix.   
+The camera is defined by its `view direction` and `up` vector. The camera's coordinate system is then defined as follows: the Z axis points in the `view direction`, the X axis is perpendicular to both the `up` and `view direction` vectors, and the Y axis is perpendicular to both the X and Z axes. We normalize all vectors and pack them into a matrix - this will be our rotation matrix.   
 
-Now we apply camera's rotation to our rays:
+Now we apply the camera's rotation to our rays:
 
 ```glsl
 rd = normalize( m * rd );
 ```
 
-Here are a few resources to help with understanding:
+Here are a few resources to help with understanding the topic:
 - [Fundamentals of Computer Graphics]
 - [Confused with Coordinate Transformations] 
 - [Computer Graphics Chapter – 7 (part - B)]
@@ -60,7 +60,7 @@ vec3 draw_background
 
 #### 2.1. Color
 
-The color will be a symmetrical gradient in the Y direction, that starts at 0.0 and ends at 1.0. We smooth out the Y value for a softer change.
+The color will be a symmetrical gradient in the Y direction, starting at 0.0 and ending at 1.0. We smooth out the Y value for a softer transition.
 ```glsl
 vec3 bgcol( in vec3 rd )
 {
@@ -75,13 +75,13 @@ vec3 bgcol( in vec3 rd )
 
 #### 2.2. Plane
 
-The plane is defined by its normal, any point on the plane, and to not stretch to infinity, we will clap it in [ -12.0, 12.0 ] range:
+The plane is defined by its normal and any point on the plane. To prevent it from stretching to infinity, we will clamp it in within the range [ -12.0, 12.0 ]:
 ```glsl
 float plane_size = 12.0;
 vec3 plane_normal = vec3( 0.0, 1.0, 0.0 ); // Normal of the plane
 vec3 p0 = PLANE_P; // Any point on the plane
 ```
-To draw a plane, we need to find a point of intersection between our ray and the plane. The formula can be derived analitically and translated directly to the code:
+To draw a plane, we need to find the point of intersection between our ray and the plane. The formula can be derived analytically and translated directly to the code:
 
 ```glsl
 float raytrace_plane
@@ -109,7 +109,7 @@ Then we call it like this:
 float plane_t = raytrace_plane( ro, rd, plane_normal, p0 ); // Distance to the plane
 ```
 
-If `plane_t` is bigger than 0.0, then we got a hit in a positive direction of our ray.
+If `plane_t` is greater than, then we have a hit in a the positive direction of our ray.
 
 ```glsl
 float plane_t = raytrace_plane( ro, rd, plane_normal, p0 );
@@ -126,7 +126,7 @@ if( plane_t > 0.0 )
 }
 ```
 
-For a better look, we will define a `blur_radius` and smothly mix the color of the plane with black color( no color ) to get a nice circular area:
+For a better appearance, we will define a `blur_radius` and smoothly blend the color of the plane with black ( no color ) to create a nice circular area:
 ```glsl
 float blur_radius = 10.0;
 
@@ -150,7 +150,7 @@ if all( uv <= vec2f( plane_size ) )
 ```
 #### 2.3. Lighting
 
-The light will be a point light whose position is define by the constant `LIGHT_SOURCE`, and it will have light attenuation based on the distance from the light. We will use a simple [Bling-Phong reflection model]:
+The light will be a point light whose position is defined by the constant `LIGHT_SOURCE`, and it will have light attenuation based on the distance from the light. We will use a simple [Blinn-Phong reflection model]:
 ```glsl
 // Calculate the distance to the light source
 float r = length( LIGHT_SOURCE - plane_hit );
@@ -174,7 +174,7 @@ vec3 plane_color = ( LdotN * diff_color + phong_value );
 plane_color *= attenuation;
 ```
 
-Lastly we will use [Gamma correction] on the background, to make colors appear better
+Lastly, we will use [Gamma correction] on the background, to make the colors appear better
 
 ```glsl
 return pow( final_color, vec3( 1.0 / 2.2 ) );
@@ -186,7 +186,7 @@ return pow( final_color, vec3( 1.0 / 2.2 ) );
 
 ### 3. Box
 
-We are goin to draw an axis aligned box, that is defined by its `dimension` using an analitically derived intersection between the ray and an axis aligned box from here [Intersectors]. The function below is slightly modified:
+We are going to draw an axis-aligned box defined by its `dimension` using an analytically derived intersection between the ray and an axis-aligned box from [Intersectors]. The function below is slightly modified:
 ```glsl
 float raytrace_box
 (
@@ -202,9 +202,9 @@ float raytrace_box
   // The result for each plane is stored in z, y, x coordinates of the `t` variable respectively.
   vec3 dr = 1.0 / rd;
   vec3 t = ro * dr;
-  // Now we need to offset the `t` to hit planes that build the box.
-  // If we take a point in the corner of the box and calculate the distance needed to travel from that corner
-  // to all three planes, we can then take that distance and subtruct/add to our `t`, to get the proper hit value.
+  // Now we need to offset the `t` to hit the planes that form the box.
+  // If we take a point at the corner of the box and calculate the distance needed to travel from that corner
+  // to all three planes, we can then take that distance and subtract from or add to our `t`, to get the proper hit value.
   vec3 dt = box_dimension * abs( dr );
   
   // Planes facing us are closer, so we need to subtruct
@@ -236,9 +236,9 @@ float raytrace_box
 }
 ```
 
-The function returns the distance to the hit point from the `ro` and writes the normal of the box in `normal` vector;
+The function returns the distance to the hit point from the `ro` and writes the normal of the box to the `normal` vector;
 
-In the `main` function, same as with the plane, we find the intersection with the box and color it if there was a hit:
+In the `main` function, as with the plane, we find the intersection with the box and color it if there is a hit:
 ```glsl
 const vec3 BOX_DIMENSIONS = vec3( 0.75, 1.25, 0.75 );
 
@@ -257,7 +257,7 @@ if( box_t > 0.0 )
 }
 ```
 
-The edges are going to have a dark smooth stitch to cover the transition between the sides. To calculate the stitche, we need to know the distatnce to the each edge
+The edges will have a dark, smooth stitch to cover the transition between the sides. To calculate the stitch, we need to know the distance to each edge:
 ```glsl
 // Distance to the edges
 const vec3 BOX_DTE = vec3
@@ -268,10 +268,10 @@ const vec3 BOX_DTE = vec3
 );
 ```
 
-As the position of the hit point approaches the edges, we take a smoothstep of the distance to the edge that we will use to color our box. The smooststep is caclulated for all edges at once, and as a result we take the value for the closest edge:
+As the position of the hit point approaches the edges, we take a smoothstep of the distance to the edge that we will use to color our box. The smoothstep is calculated for all edges at once, and as a result, we take the value for the closest edge:
 ```glsl
 
-// Paint the edges in black with a little blur at transition
+// Paint the edges black with a slight blur at the transition
 float smooth_box_edge( in vec3 ro )
 {
   vec3 edge_blur = smoothstep
@@ -284,7 +284,7 @@ float smooth_box_edge( in vec3 ro )
   return max( edge_blur.x, max( edge_blur.y, edge_blur.z ) );
 }
 ```
-The the main function we smooth the color of the box with the color of the edge 
+In the main function, we smooth the color of the box with the color of the edge 
 ```glsl
 const vec3 BOX_EDGE_COLOR = vec3( 0.0 );
 
@@ -295,7 +295,7 @@ final_color = mix( final_color, BOX_EDGE_COLOR, edge_t ) ;
 
 ```
 
-If you paint the box white, you'll get this.
+If you paint the box white, you'll get this:
 
 <p align="center">
 <img src="assets/Box_Edge.png" width="600px">
@@ -303,7 +303,7 @@ If you paint the box white, you'll get this.
 
 #### 4. Shadow
 
-The shadow will be done using Inigo Quilez's implementation for the soft shadows from [Box functions]:
+The shadow will be created using Inigo Quilez's implementation of soft shadows from [Box functions]:
 
 ```glsl
 float seg_shadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
@@ -358,7 +358,7 @@ float box_soft_shadow
 }
 ```
 
-In a `draw_background` function, right before the smoothing of the plane, we calculate the shadow factor, smooth it out to get lighter shadows, and multiply it by the color of our plane:
+In a `draw_background` function, right before smoothing the plane, we calculate the shadow factor, smooth it out to get lighter shadows, and multiply it by the color of our plane:
 ```glsl
 float shad = box_soft_shadow
 ( 
@@ -377,11 +377,11 @@ The result:
 
 ### 5. Box surface
 
-We will cover the surface with a water like noise, that we then can use to calculate normals and use them in calculation for our reflected and refracted lights.
+We will cover the surface with water-like noise, which we can then use to calculate normals and apply them in the calculation of our reflected and refracted light.
 
 #### 5.1. Water noise
 
-To create a noise we need a hashing function - a map from one value to another, in our case `vec2` to `float`:
+To create noise, we need a hashing function - a map from one value to another, in our case from `vec2` to `float`:
 
 ```glsl
 float hash2dx1d( in vec2 p ) 
@@ -390,9 +390,9 @@ float hash2dx1d( in vec2 p )
   return fract( sin( h ) * 43758.5453123 );
 }
 ```
-The idea is to shuffle the input in any way you like uing prime numbers and then turn it into a number in range [ 0.0, 1.0 ] that you then can transform in any range you like. The above is taken from [Random / noise functions for GLSL].  
+The idea is to shuffle the input in any way you like using prime numbers and then turn it into a number in the range [ 0.0, 1.0 ] which you can then transform into any range. The above is taken from [Random / noise functions for GLSL].  
 
-With a hash function we can create [Perlin Noise]:
+With a hash function, we can create [Perlin Noise]:
 ```glsl
 float perlin_noise2dx1d( in vec2 p )
 {
@@ -409,8 +409,8 @@ float perlin_noise2dx1d( in vec2 p )
 }
 ```
 
-The code splits the `p` domain int a grid, hash all 4 corners of the grid and mixes them together.  
-Now lets create the base of our water noise:
+The code splits the `p` domain into a grid, hashes all 4 corners of the grid and mixes them together.  
+Now, lets create the base of our water noise:
 
 ```glsl
 float water_octave( in vec2 uv, in float choppy )
@@ -424,14 +424,14 @@ float water_octave( in vec2 uv, in float choppy )
 }
 ```
 The technique is called [Domain warping].   
-First we shift the `uv` domain in x = y direction, to add randomness to it. Taking `sin` of `uv` will create a plane of black and white circles with grey in between. `abs` turns black circles to white, adding a sort of rigid look. Subtructing from `1.0` inverses the plane.  
-Same process with `cos`, excepth without inversion. To noises are then mixed together. In the result we combine both coordinates and raise them to some power to add more contrast. The process is shown on the image below:
+First, we shift the `uv` domain in the x = y direction, to add randomness to it. Taking the `sin` of `uv` will create a plane of black and white circles with grey in between. `abs` turns black circles to white, adding a sort of rigid look. Subtracting from `1.0` inverses the plane.  
+Same process with `cos`, excepth without inversion. The two noises are then mixed together. In the result, we combine both coordinates and raise them to some power to add more contrast. The process is shown in the image below:
 
 <p align="center">
 <img src="assets/Water_Octave.png" width="600px">
 </p>
 
-Having a base noise, we can use another technique [Fractional Brownian Motion], to combine the noise we created with itself at different frequences:
+Having a base noise, we can use another technique, [Fractional Brownian Motion], to combine the noise we created with itself at different frequencies:
 
 ```glsl
 // Fbm based sea noise
@@ -462,7 +462,7 @@ float water_noise( in vec2 p )
 }
 ```
 
-We define some initial state with a starting amplitude, frequence, choppiness. `octave_m` is a rotation and scale matrix use to further distort the space. At every iteration, we sample the base noise as the current frequency, scale it by the current implitude and add it to the result. Amplitude, frequence, p domain are then updated and we do another iteration:
+We define some initial state with a starting amplitude, frequency, and choppiness. `octave_m` is a rotation and scale matrix used to further distort the space. At every iteration, we sample the base noise at the current frequency, scale it by the current amplitude and add it to the result. Amplitude, frequency, and the p domain are then updated, and we do another iteration:
 
 <p align="center">
 <img src="assets/Water_Noise.png" width="600px">
@@ -476,7 +476,7 @@ Links:
 
 #### 5.2. Normal mapping
 
-Assuming our noise lies in XZ plane, to get the normal at any position we need to take the derivative in Z and X direction to get the slope in those directions. Cross product of these to vectors ( 0.0, df/dz, 1.0 ), ( 1.0, df/dx, 0.0 ) will give as a normal of the surface in Y direction. More on this here: [Painting a Landscape with Maths]
+Assuming our noise lies in the XZ plane, to get the normal at any position, we need to take the derivative in the Z and X direction to get the slope in those directions. The cross product of these two vectors ( 0.0, df/dz, 1.0 ), ( 1.0, df/dx, 0.0 ) will give us the normal of the surface in the Y direction. More on this here: [Painting a Landscape with Maths]
 
 
 ```glsl
@@ -494,11 +494,11 @@ vec3 water_normal( in vec2 p )
   return normal;
 }
 ```
-By increasing `WATER_INTENSITY`, you will decrease the Y component's influence, and hence increase the deviation from the `up` direction of the normal( as if increasing size of the waves ). `e` parameter is the small change in X or Z direction.
+By increasing `WATER_INTENSITY`, you will decrease the Y component's influence, and hence increase the deviation from the `up` direction of the normal( as if increase the size of the waves ). The `e` parameter is the small change in X or Z direction.
 
-The normals now need to be reoriented to point in the direction of the box's normal. This process is called [Normal Mapping] and is very similiar to the transformation we did for rays directions.
+The normals now need to be reoriented to point in the direction of the box's normal. This process is called [Normal Mapping] and is very similar to the transformation we did for ray directions.
 
-For an axis aligned box, all normals point in the direction of one of the axis. The other two vectors( tangent and bitangent ) will be vectors pointing in the direction of the other two axises.
+For an axis-aligned box, all normals point in the direction of one of the axes. The other two vectors ( tangent and bitangent ) will be vectors pointing in the direction of the other two axes.
 
 ```glsl
 const vec2 M = vec2( 1.0, 0.0 );
@@ -516,7 +516,7 @@ if( box_t > 0.0 )
 }
 ```
 
-To sample the nosie we need to get the uv coordinates for the box's face.
+To sample the noise, we need to get the UV coordinates for the box's face.
 
 ```glsl
 const float INSIDES_NOISE = 0.3
@@ -525,13 +525,13 @@ vec2 uv = ro.xy * w.z + ro.xz * w.y + ro.yz * w.x;
 uv *= INSIDES_NOISE
 ```
 
-The `INSIDES_NOISE` constant allows to control the scale of the noise.  
+The `INSIDES_NOISE` constant allows you to control the scale of the noise.  
 
 ```glsl
 vec3 n = normalize( TBN * water_normal( uv ) );
 ```
 
-We get the normal from the noise and trasform it using `TBN` matrix.
+We get the normal from the noise and transform it using the `TBN` matrix.
 
 Links:
 - [Painting a Landscape with Maths]
@@ -539,7 +539,7 @@ Links:
 
 #### 5.3. Surface reflection
 
-Using the normal we can calculate the refracted and reflected rays, using builtin functions. To calculate the refracted ray, we need to know the [Refractive Index] of both mediums
+Using the normal, we can calculate the refracted and reflected rays using built-in functions. To calculate the refracted ray, we need to know the [Refractive Index] of both mediums
 
 ```glsl
 const float airRI = 1.0;
@@ -563,7 +563,7 @@ if( box_t > 0.0 )
 }
 ```
 
-The light splits into two, meaning its energy gets devided. We use Fresnel to get the amount of light reflected `F`, and from that the amount of light refracted `1.0 - F`. For the Fresnel we need to know the critical reflection angle - an angle under which the light gets fully reflected. And also the Fresnel at 0 degrees incidence from the normal:
+The light splits into two, meaning its energy gets divided. We use Fresnel to get the amount of light reflected, `F`, and from that, the amount of light refracted `1.0 - F`. For the Fresnel calculation, we need to know the critical reflection angle - the angle under which the light gets fully reflected - and also the Fresnel at 0 degrees incidence from the normal:
 ```glsl
 const vec3 F0 = vec3( pow( abs( ( boxRI - airRI ) ) / ( boxRI + airRI ), 2.0 ) );
 const float CRITICAL_ANGLE_ATOB = sqrt( max( 0.0, 1.0 - iorBtoA * iorBtoA ) );
@@ -589,7 +589,7 @@ Links:
 - [Computer Graphics Tutorial - PBR]
 - [Microfacet BRDF]
 
-For the refracted ray, we are going to define a new function `draw_insides` that will handle the contents of the box, and for the reflected ray we simple call the `draw_background` function with the new ray direction. Both colors we then multiply be the fresnel.
+For the refracted ray, we are going to define a new function, `draw_insides` that will handle the contents of the box. For the reflected ray, we simply call the `draw_background` function with the new ray direction. Both colors we then multiply be the Fresnel.
 
 ```glsl
 if( box_t > 0.0 )
@@ -606,7 +606,7 @@ if( box_t > 0.0 )
   final_color += F * refl_color;
 }
 ```
-If `draw_insides` return black, then we will get the following image:
+If `draw_insides` returns black, then we will get the following image:
 
 <p align="center">
 <img src="assets/Box_Surface.png" width="600px">
@@ -614,11 +614,11 @@ If `draw_insides` return black, then we will get the following image:
 
 ### 6. Box's indsides
 
-For the insides, we will go with the cosmic theme. So first we are going to draw some stars.
+For the insides, we will go with a cosmic theme. So, first, we are going to draw some stars.
 
 #### 6.1. Stars
 
-The stars will be drawn on a sphere very far away. The view direction will difine the position on the sphere by calculating `theta`( longitude ) and `phi`( latitude ) angles:
+The stars will be drawn on a sphere very far away. The view direction will define the position on the sphere by calculating `theta` ( longitude ) and `phi` ( latitude ) angles:
 
 ```glsl
 vec3 draw_stars( in vec3 rd )
@@ -637,11 +637,11 @@ vec3 draw_stars( in vec3 rd )
   // ...
 }
 ```
-`atan` returns an angle in range [ -PI, PI ], whose tangent equals to `x / z`.  
-`asin` returns an angle in range [ -PI/2, PI/2 ], whose sin equals `y`.     
-To use this angles we normalize them deviding `phi` by `2PI` and `theta` by `PI`, to get the range [ -0.5, 0.5 ]. We make a shift by 0.5, to finally get the `uv` coordinates in range [ 0.0, 1.0 ].  
+`atan` returns an angle in the range [ -PI, PI ], whose tangent equals to `x / z`.  
+`asin` returns an angle in the range [ -PI/2, PI/2 ], whose sine equals `y`.     
+To use this these we normalize them deviding `phi` by `2PI` and `theta` by `PI`, to get the range [ -0.5, 0.5 ]. We then shift by 0.5, to finally get the `uv` coordinates in range [ 0.0, 1.0 ].  
 
-`uv` represents a square in range [ 0.0, 1.0 ], that we can scale by some number and divide it into a grid. We would like to generate stars at different grid sizes with different parameters for stars, so we will take that logic to its own function:
+`uv` represents a square in range [ 0.0, 1.0 ], which we can scale by some number and divide it into a grid. We would like to generate stars at different grid sizes with different parameters for stars, so we will take that logic into its own function:
 
 ```glsl
 vec3 generate_stars
@@ -655,7 +655,7 @@ vec3 generate_stars
   // ...
 }
 ```
-The integer part of `uv` will be a `cell_id` and its fractional part will be coordinates local to that cell. To generate the stars position, we will feed cell's id to the `hash` function that will take `vec2` and return `vec2` - position of the star inside the cell. This way each cell will be assigned a star position.  
+The integer part of `uv` will be a `cell_id`б and its fractional part will be coordinates local to that cell. To generate the stars position, we will feed the cell's ID to the `hash` function, which will take a `vec2` and return `vec2` - the position of the star inside the cell. This way, each cell will be assigned a star position.  
 The stars will also have a size, so we have to make sure the star fully fits inside the cell by shifting it by the amount it protrudes outside the cell:
 
 ```glsl
@@ -677,9 +677,9 @@ vec3 generate_stars
 }
 ```
 
-The coordinates are shifted to be centered at 0.0, because it makes caclulations simpler.  
-To create a `glow`, we will use an exponent of the distance to the star scaled by the size of the star. This will create a soft gradient that starts strong at the center of the start, and quickly fades away as  the distance increases.  
-To make the look more randmized, we will introduce the `brightness` parameter, that will affect the power of the `glow`. The brightness can be recieved, again, by using a hash function with a cell id:
+The coordinates are shifted to be centered at 0.0, because it makes calculations simpler.  
+To create a `glow`, we will use an exponent of the distance to the star scaled by the size of the star. This will create a soft gradient that starts strong at the center of the star, and quickly fades away as  the distance increases.  
+To make the look more randomized, we will introduce the `brightness` parameter, which will affect the power of the `glow`. The brightness can be retrieved, again, by using a hash function with a cell ID:
 
 ```glsl
 
@@ -711,9 +711,9 @@ float remap
   return glow * brightness;
 }
 ```
-`remap` is the function that takes a value in one range, and converts it to another. In the example above, we remap brightness to the smaller range to not have stars too dark to be seen.  
+`remap` is the function that takes a value in one range, and converts it to another. In the example above, we remap brightness to a smaller range to prevent stars from being too dark to see.  
 
-To seperate big stars from the small ones, we'll add an optical flare to the big ones. Using the distance to the star, the horizontal flare can be achieved by combining the smooth step in X direction based on the star's size and Y direction based on the flare's width. Vertical is done in the same manner, but with axises reversed:
+To separate big stars from the small ones, we'll add an optical flare to the big ones. Using the distance to the star, the horizontal flare can be achieved by combining the smooth step in the X direction based on the star's size and the Y direction based on the flare's width. The vertical flare is done in the same manner, but with axes reversed:
 
 ```glsl
 vec3 generate_stars
@@ -741,13 +741,13 @@ vec3 generate_stars
   // ...
 }
 ```
-Flares will be animated using a remaped `sin` function with some arbitrary offset. An example of a star with and without flares:
+Flares will be animated using a remapped `sin` function with some arbitrary offset. An example of a star with and without flares:
 
 <p align="center">
 <img src="assets/Star_Example.png" width="600px">
 </p>
 
-Having a way to generate stars, we can run a loop to generate stars, and at the end of each iteration increase grid size and reduce star's size. Back in `draw_stars` we first initialize some state
+Having a way to generate stars, we can run a loop to generate them, and at the end of each iteration, increase the grid size and reduce star's size. Back in `draw_stars`, we first initialize some state:
 
 ```glsl
 vec3 draw_stars( in vec3 rd )
@@ -766,7 +766,7 @@ vec3 draw_stars( in vec3 rd )
 }
 ```
 
-Then we will run to loops: one will generate stars with flares, the other one without:
+Then we will run two loops: one will generate stars with flares, the other one will generate stars without:
 
 ```glsl
 // Big stars are animated
@@ -792,11 +792,11 @@ for( int i = 2; i < 5; i++ )
 
 #### 6.2. Nebula
 
-[Nebula] is a cloed that occupies some volume in space. To draw a volume of matter we are going to use a technique called [Ray marching]. But before we implement ray marching, we first need to create 3d noise that will define the look of our Nebula.
+[Nebula] is a cloud that occupies some volume in space. To draw a volume of matter, we are going to use a technique called [Ray marching]. But before we implement ray marching, we first need to create 3D noise that will define the look of our Nebula.
 
 ##### 6.2.1. Nebula noise
 
-First we will define a base noise function that will take 3d vector as input and return a number. Just like with water noise, we are going to use FBM to add detail and Domain warping to change the shape of the noise:
+First, we will define a base noise function that will take 3D vector as input and return a number. Just like with water noise, we are going to use FBM to add detail and domain warping to change the shape of the noise:
 ```glsl
 float spiral_noise( in vec3 p )
 {
@@ -822,15 +822,15 @@ float spiral_noise( in vec3 p )
 }
 ```
 
-As you can see, we have the usual loop for FBM with frequency and amplitude sharing the same variable `iter`. The sum of `sin` and `cos` will create a grid of black and white circles. Taking `abs` of the grid will leave only white circle with black fence seperating them, as you can see on the image below. The base noise is independent from the Z axis, so in 3d you can imagine infinite parallel tubes aligned with Z axis.
+As you can see, we have the usual loop for FBM, with frequency and amplitude sharing the same variable, `iter`. The sum of `sin` and `cos` will create a grid of black and white circles. Taking the `abs` of the grid will leave only white circle with black fences separating them, as you can see on the image below. The base noise is independent of the Z axis, so in 3D, you can imagine infinite parallel tubes aligned with the Z axis.
 
 <p align="center">
 <img src="assets/Spiral_Base.png" width="600px">
 </p>
 
-Once the noise is sampled, before beginning the new iteration we deform the `p` domain by first rotating around Z axis and then rotating it aroung the Y axis. We coud use a rotation matrix for that, but to make it cheaper, instead we add a perpendicular vector of length `nudge` to `p` and then scale the result, so the length does not change. This process is repeated 8 times and the noise is ready.
+Once the noise is sampled, before beginning the new iteration, we deform the `p` domain by first rotating around the Z axis and then rotating it aroung the Y axis. We coud use a rotation matrix for that, but to make it cheaper, instead, we add a perpendicular vector of length `nudge` to `p` and then scale the result so the length does not change. This process is repeated 8 times and the noise is ready.
 
-Second part of the nebula's noise will be include 3d [Signed Distance Functions], specifally that of a Torus taken from here [3D SDFs].
+The second part of the nebula's noise will be include 3D [Signed Distance Functions], specifically that of a torus, taken from here [3D SDFs].
 
 ```glsl
 float sdf_torus( in vec3 p, in vec3 t )
@@ -840,7 +840,7 @@ float sdf_torus( in vec3 p, in vec3 t )
 }
 ```
 
-`t.x` represents the main radius of the torus, `t.y` - the inner radius, `t.z` is a custom value that will clamp the distance field with XZ planes Y = ±t.z. By adding torus to our noise, we shape the final noise to resemble torus.
+`t.x` represents the main radius of the torus, `t.y` represents the inner radius, and `t.z` is a custom value that will clamp the distance field with XZ planes at Y = ±t.z. By adding the torus to our noise, we shape the final noise to resemble torus.
 
 ```glsl
 float nebula_noise( in vec3 p )
@@ -850,11 +850,11 @@ float nebula_noise( in vec3 p )
   return result;
 }
 ```
-For the spiral noise we deform the `p` domain one more time before passing it to the noise and then scaling the result by 3.0. The value are arbitrary and are chosen based on what looks better and how shapes are defined. We then subtruct the sdf of the torus - noise inside the torus will get bigger, and noise outsize will get smaller. This will be useful when draw it with a raymarching loop.
+For the spiral noise, we deform the `p` domain one more time before passing it to the noise and then scaling the result by 3.0. The values are arbitrary and are chosen based on what looks better and how shapes are defined. We then subtract the SDF of the torus - noise inside the torus will get bigger, and noise outside will get smaller. This will be useful when drawing it with a raymarching loop.
 
 ##### 6.2.2. Raymarching
 
-Our Nebula will be contained inside the sphere, so we need a function that will find an intersection of the ray with the sphere ( [Intersectors] ):
+Our Nebula will be contained inside a sphere, so we need a function that will find the intersection of the ray with the sphere ( [Intersectors] ):
 ```glsl
 vec2 raytrace_sphere( in vec3 ro, in vec3 rd, in vec3 ce, in float ra )
 {
@@ -887,8 +887,8 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
 }
 ```
 
-Since the noise is defined in 3d space, and I noticed that bounding sphere at radius 3.0 produces the best result, I wanted to be able to resize the sphere, without changing its contents. For that I add a `k` parameter that will properly scale values that need to be scaled down below. The smoothstep at the end is used to make colors more crisp.  
-As we move through the volume, we are going to keep track of some state, mainly `total_density` that will tell us how dense the medium is so far:
+Since the noise is defined in 3D space, and I noticed that a bounding sphere with a radius of 3.0 produces the best result, I wanted to be able to resize the sphere, without changing its contents. For that I add a `k` parameter that will properly scale values that need to be scaled down below. The smoothstep at the end is used to make colors more crisper.  
+As we move through the volume, we are going to keep track of some state, mainly `total_density`, which will tell us how dense the medium is so far:
 
 ```glsl
 // ...
@@ -900,7 +900,7 @@ float weight = 0.0; // Contribution of the current point
 
 // ...
 ```
-Now we need to find the intersection with the bounding sphere and if there is hit then we begin raymarching loop:
+Now we need to find the intersection with the bounding sphere, and if there is a hit, we begin raymarching loop:
 
 ```glsl
 vec2 vt = raytrace_sphere( ro, rd, vec3( 0.0 ), radius );
@@ -922,7 +922,7 @@ if( any( notEqual( vt, vec2( -1.0 ) ) ) )
 
 // ...
 ```
-We clamp `t` to 0.0 in case we are inside the sphere, so we will marh from our current position. We also add some breaking conditions to the loop, like if `t` is bigger than `tout` then it means we left the sphere and no need to move forward.
+We clamp `t` to 0.0 in case we are inside the sphere, so we will march from our current position. We also add some breaking conditions to the loop, like if `t` is greater than `tout`, it means we left the sphere and no longer need to move forward.
 ```glsl
 // ...
 
@@ -934,8 +934,8 @@ float d = abs( nebula_noise( p * 3.0 ) * 0.5 ) + 0.07;
 
 // ...
 ```
-We get the current position `p` and feed it to the noise. All the numbers around the calculation of the noise are arbitrary and serve only to better the result visually.  
-The Nebula will have a star at its center that radiates light in all directions. To get the color of the star, we first need to calculate the distance to the star, and then, using exponentiation, reduce the light contribution to the final color depending on the distance to the light source:
+We get the current position `p` and feed it to the noise. All the numbers around the calculation of the noise are arbitrary and serve only to improve the result visually.  
+The nebula will have a star at its center that radiates light in all directions. To get the color of the star, we first need to calculate the distance to the star and then, using exponentiation, reduce the light contribution to the final color depending on the distance to the light source:
 
 ```glsl
 // Distance to the light soure
@@ -948,9 +948,9 @@ final_color.rgb += vec3( 0.67, 0.75, 1.0 ) / ( ls_dst * ls_dst * 10.0 ) / 80.0; 
 final_color.rgb += light_color / exp( ls_dst * ls_dst * ls_dst * 0.08 ) / 30.0; // bloom
 ```
 
-`light_color` is defined as [Cosine gradient], to resemble a color scheme of the Nebula. The light's contribution exponentially decreases with distance. We add two colors: one for the `star` itself and one for `bloom`. As you can see, the `star` color falls very rapidly, adding a shiny sphere at the center, and bloom falls slower, lasting up to the edges of the sphere.
+`light_color` is defined as a [Cosine gradient], to resemble the color scheme of the nebula. The light's contribution exponentially decreases with distance. We add two colors: one for the `star` itself and one for `bloom`. As you can see, the `star` color falls off very rapidly, adding a shiny sphere at the center, and bloom falls off slower, lasting up to the edges of the sphere.
 
-Above a constant `h` was defined - a maxim local density. If density at the current position is less than `h`, then we add it to the calculations:
+Above, a constant `h` was defined as a maxim local density. If the density at the current position is less than `h`, then we add it to the calculations:
 
 ```glsl
 if( d < h )
@@ -966,7 +966,7 @@ if( d < h )
 }
 ```
 
-As we stack layers on top of each other, we need a weight to decide how much each layer will contirbute to the final result, or in other words - decide its weight. In this case the weight is propotionally dependent on the `local_density` and inverse dependent on the `total_density`. Then the current layer is added to the `total_density` based on its weight. The weighing is arbitrary and depends on preferences.
+As we stack layers on top of each other, we need a weight to decide how much each layer will contribute to the final result, or in other words, determine its weight. In this case, the weight is propotionally dependent on the `local_density` and inversely dependent on the `total_density`. Then the current layer is added to the `total_density` based on its weight. The weighing is arbitrary and depends on preferences.
 
 ```glsl
 vec3 nebula_color( in float density, in float radius )
@@ -999,17 +999,17 @@ if( d < h )
   final_color = final_color + col * ( 1.0 - final_color.a );
 }
 ```
-`nebula_color` color calculates the color based on density and the distance from the center. Mixing colors based on density darkens colors where the medium is more dense, creating an occlusion effect within the medium. Colors are further darkened based on the distance from the center.  
-An emission effect is added by adding current color to itself based on the current total density and some arbitrary fuctor `0.2`. `col` is then reduced and blended with the current color.
+`nebula_color` calculates the color based on density and the distance from the center. Mixing colors based on density darkens colors where the medium is more dense, creating an occlusion effect within the medium. Colors are further darkened based on the distance from the center.  
+An emission effect is added by adding the current color to itself based on the current total density and some arbitrary factor `0.2`. `col` is then reduced and blended with the current color.
 
 ```glsl
 total_density += 1.0 / 70.0;
 // Optimize step size near the camera and near the light source. The densier field - the bigger step
 t += max( d * 0.1 * max( min( ls_dst, length( ro * k ) ), 1.0 ), 0.01 ) / k;
 ```
-At the end of the loop, we artificially add more density to kep the medium more sparse and step `t` forward by some amount, based on the local density and the distance to the camera.
+At the end of the loop, we artificially add more density to keep the medium more sparse and step `t` forward by some amount, based on the local density and the distance to the camera.
 
-The final touch would be to add scattering based on total density. The more dense the medium, the more light scatters in all directions, reducing its brightness:
+The final touch is to add scattering based on total density. The denser the medium, the more light scatters in all directions, reducing its brightness:
 
 ```glsl
 // Simple scattering
@@ -1040,7 +1040,7 @@ vec3 draw_box_background
 
 ### 7. Inside reflections
 
-Time to add some reflections inside the box. The process is the same as when we did refractions and reflections from the outside. Back to the function `draw_insides`, that return black color up until now:
+Time to add some reflections inside the box. The process is the same as when we did refractions and reflections from the outside. Let's return to the function `draw_insides`, which has returned a black color up until now:
 
 ```glsl
 const int NUM_REFLECTIONS = 2;
@@ -1069,7 +1069,7 @@ vec3 draw_insides
 }
 ```
 
-`distance_traveled` will keep track of the total distance our ray travels, so we can use it then to attenuate color based on that distance. `attenuation` will store the product of Fresnel value at each reflection. At each iteration `prev_ro` and `prev_rd` will be updated with new hit point and reflected direction respectively.
+`distance_traveled` will keep track of the total distance our ray travels, so we can use it to attenuate color based on that distance. `attenuation` will store the product of the Fresnel value at each reflection. At each iteration, `prev_ro` and `prev_rd` will be updated with new the new hit point and reflected direction, respectively.
 
 ```glsl
 const float INNER_BOX_SCALE = 6.0;
@@ -1081,7 +1081,7 @@ final_color += inside_color * attenuation;
 // ...
 ```
 
-We draw the color for the box's background and attenuate its color. Instead of making the background smaller, we scale the position by `INNER_BOX_SCALE` constant, to make it as if the box is larger on the inside.
+We draw the color for the box's background and attenuate its color. Instead of making the background smaller, we scale the position by `INNER_BOX_SCALE` constant to make it appear as if the box is larger on the inside.
 
 ```glsl
 {
@@ -1113,7 +1113,7 @@ We draw the color for the box's background and attenuate its color. Instead of m
 }
 ```
 
-The rest of the loop is the same process as when we drew box's reflections outside the box.
+The rest of the loop follows the same process as when we drew the box's reflections outside the box.
 
 The final render:
 
@@ -1137,7 +1137,7 @@ Other links:
 - [Computer Graphics Chapter – 7 (part - B)]
 - [Line-plane intersection]
 - [Intersectors]
-- [Bling-Phong reflection model]
+- [Blinn-Phong reflection model]
 - [Gamma correction]
 - [Perlin Noise]
 - [Understanding Perlin Noise]
@@ -1173,7 +1173,7 @@ Other links:
 
 [Intersectors]: https://iquilezles.org/articles/intersectors/
 
-[Bling-Phong reflection model]: https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
+[Blinn-Phong reflection model]: https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_reflection_model
 
 [Gamma correction]: https://en.wikipedia.org/wiki/Gamma_correction
 
