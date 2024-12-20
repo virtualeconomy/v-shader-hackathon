@@ -1,5 +1,6 @@
 
 ### 1. Basic setup
+
 For our shader we are going to use raytracing to draw the scene, so first we need to generate our rays. A ray has an origin and a direction. The origin will be our camera's position. From the origin we are going to shoot one ray per pixel in camera's view direction.  
 Before we shoot a ray from camera's position we generate ray direction in the following manner:
 
@@ -52,6 +53,7 @@ vec3 draw_background
 ```
 
 #### 2.1. Color
+
 The color will be a symmetrical gradient in the Y direction, that starts at 0.0 and ends at 1.0. We smooth out the Y value for a softer change.
 ```glsl
 vec3 bgcol( in vec3 rd )
@@ -66,6 +68,7 @@ vec3 bgcol( in vec3 rd )
 ```
 
 #### 2.2. Plane
+
 The plane is defined by its normal, any point on the plane, and to not stretch to infinity, we will clap it in [ -12.0, 12.0 ] range:
 ```glsl
 float plane_size = 12.0;
@@ -293,6 +296,7 @@ If you paint the box white, you'll get this.
 </p>
 
 #### 4. Shadow
+
 The shadow will be done using Inigo Quilez's implementation for the soft shadows from [Box functions]:
 
 ```glsl
@@ -607,6 +611,7 @@ If `draw_insides` return black, then we will get the following image:
 For the insides, we will go with the cosmic theme. So first we are going to draw some stars.
 
 #### 6.1. Stars
+
 The stars will be drawn on a sphere very far away. The view direction will difine the position on the sphere by calculating `theta`( longitude ) and `phi`( latitude ) angles:
 
 ```glsl
@@ -780,6 +785,7 @@ for( int i = 2; i < 5; i++ )
 </p>
 
 #### 6.2. Nebula
+
 [Nebula] is a cloed that occupies some volume in space. To draw a volume of matter we are going to use a technique called [Ray marching]. But before we implement ray marching, we first need to create 3d noise that will define the look of our Nebula.
 
 ##### 6.2.1. Nebula noise
@@ -1004,18 +1010,31 @@ The final touch would be to add scattering based on total density. The more dens
 final_color *= 1.0 / exp( total_density * 0.2 ) * 0.8;
 ```
 
+Combining our stars and nebula, we get the following result:
 
+```glsl
+vec3 draw_box_background
+(
+  in vec3 ro,
+  in vec3 rd
+)
+{
+  vec3 final_color = vec3( 0.0 );
 
+  final_color += draw_stars( rd );
+  final_color += draw_nebula( ro, rd );
 
-Once the raymarching pass is done, scattering is applied and the color is smoothed.
+  return final_color;
+}
+```
 
 <p align="center">
 <img src="assets/Nebula.png" width="600px">
 </p>
 
-### Inside reflections
+### 7. Inside reflections
 
-Finally we need to add some reflections isndie the box. The process is the same as when we did refractions and reflections from the outsize.
+Time to add some reflections inside the box. The process is the same as when we did refractions and reflections from the outside. Back to the function `draw_insides`, that return black color up until now:
 
 ```glsl
 const int NUM_REFLECTIONS = 2;
@@ -1039,25 +1058,26 @@ vec3 draw_insides
   {
     // ...
   }
+
+  return final_color;
 }
 ```
 
-We setup some state. Since we are going to do several reflections, we need a variable that we can update at the end of each iteration.
+`distance_traveled` will keep track of the total distance our ray travels, so we can use it then to attenuate color based on that distance. `attenuation` will store the product of Fresnel value at each reflection. At each iteration `prev_ro` and `prev_rd` will be updated with new hit point and reflected direction respectively.
 
 ```glsl
-for( int i = 0; i < NUM_REFLECTIONS; i++ )
-{
-  vec3 inside_color = draw_box_background( prev_ro * INNER_BOX_SCALE, prev_rd );
-  final_color += inside_color * attenuation;
+const float INNER_BOX_SCALE = 6.0;
+// ...
 
-  // ...
-}
+vec3 inside_color = draw_box_background( prev_ro * INNER_BOX_SCALE, prev_rd );
+final_color += inside_color * attenuation;
 
+// ...
 ```
-We first draw are Nebula and stars. The position is multiplied by the `INNER_BOX_SCALE` to make the box bigger when we draw the insides.
+
+We draw the color for the box's background and attenuate its color. Instead of making the background smaller, we scale the position by `INNER_BOX_SCALE` constant, to make it as if the box is larger on the inside.
 
 ```glsl
-for( int i = 0; i < NUM_REFLECTIONS; i++ )
 {
   // ...
 
@@ -1066,17 +1086,6 @@ for( int i = 0; i < NUM_REFLECTIONS; i++ )
 
   vec3 new_ro = prev_ro + box_t * prev_rd;
   distance_traveled += length( prev_ro - new_ro );
-
-  // ...
-}
-```
-
-Then we find the intersection with the next face of the box.
-
-```glsl
-for( int i = 0; i < NUM_REFLECTIONS; i++ )
-{
-  // ...
 
   vec3 w = box_normal;
   vec3 u = M.xyy * w.z - M.yyx * w.x - M.yyx * w.y;
@@ -1088,55 +1097,9 @@ for( int i = 0; i < NUM_REFLECTIONS; i++ )
 
   vec3 n = TBN * water_normal( uv );
 
-  // ...
-}
-```
-Do the usual normal mapping with sampling form the water noise.
-
-```glsl
-for( int i = 0; i < NUM_REFLECTIONS; i++ )
-{
-  // ...
-
   vec3 F = fresnel( prev_rd, n, F0, CRITICAL_ANGLE_BTOA );
   vec3 reflectedRD = normalize( reflect( prev_rd, -n ) );
   vec3 refractedRD = refract( prev_rd, -n , iorBtoA );
-
-  // ...
-}
-```
-
-Calculate Fresnel and new rays. If we want to make the box transparent, we can cacluate the background color from the reflected ray and add it to the final color.
-
-```glsl
-for( int i = 0; i < NUM_REFLECTIONS; i++ )
-{
-  // ...
-
-  // Makes the box transparent
-  #ifdef TRANSPARENT_BOX
-    if( length( refractedRD ) > 0.0 )
-    {
-      vec3 refractedRD = normalize( refractedRD );
-      vec3 F = fresnel( refractedRD, n, F0, CRITICAL_ANGLE_ATOB );
-      vec3 background_color = draw_background( new_ro, refractedRD, LIGHT_SOURCE );
-      final_color += ( 1.0 - F ) * background_color * exp( -distance_traveled * 1.0 * vec3( 1.0 - COLOR_ABSORPTION ) ) * attenuation;
-    }
-
-    float edge_t = smooth_box_edge( new_ro );
-    vec3 edge_color =  mix( final_color, BOX_EDGE_COLOR, edge_t );
-    final_color = mix( final_color, edge_color, smoothstep(  0.0,  1.0, exp( -distance_traveled / 3.0 ) ) );
-  #endif
-
-  // ...
-}
-```
-You can see that we recalculate the Fresnel for the incoming light from the outside and additionally attenuate light based on the distance traveled. We also should not forget about our opaque black edges that should be visible in the reflection.
-
-```glsl
-for( int i = 0; i < NUM_REFLECTIONS; i++ )
-{
-  // ...
 
   attenuation *= F;
   prev_ro = new_ro;
@@ -1144,14 +1107,53 @@ for( int i = 0; i < NUM_REFLECTIONS; i++ )
 }
 ```
 
-Finally we update the state and end the iteration. Resulting color is return and we get our final render:
+The rest of the loop is the same process as when we drew box's reflections outside the box.
+
+The final render:
 
 <p align="center">
 <img src="assets/Final_Render.png" width="600px">
 </p>
 
+Shaders:
+- [Cube lines Shader]
+- [Strange Crystal Shader]
+- [Seascape Shader]
+- [Supernova remnant Shader]
+- [Helix nebula Shader]
+- [Cheap Cloud Flythrough Shader]
+- [Alien Beacon Shader]
+- [Box - fake soft shadow Shader]
 
-
+Other links:
+- [Fundamentals of Computer Graphics]
+- [Confused with Coordinate Transformations]
+- [Computer Graphics Chapter – 7 (part - B)]
+- [Line-plane intersection]
+- [Intersectors]
+- [Bling-Phong reflection model]
+- [Gamma correction]
+- [Perlin Noise]
+- [Understanding Perlin Noise]
+- [Fractional Brownian Motion]
+- [Domain warping]
+- [Painting a Landscape with Maths]
+- [Normal Mapping]
+- [Box functions]
+- [Computer Graphics Tutorial - PBR]
+- [Refractive Index]
+- [List of refractive indices]
+- [PBR Theory]
+- [Microfacet BRDF]
+- [Lens flare]
+- [Ray marching]
+- [Coding Adventure: Ray Marching]
+- [An introduction to Raymarching]
+- [Random / noise functions for GLSL]
+- [Nebula]
+- [Signed Distance Functions]
+- [3D SDFs]
+- [Cosine gradient]
 
 [Cube lines Shader]: https://www.shadertoy.com/view/NslGRN
 
@@ -1220,3 +1222,7 @@ Finally we update the state and end the iteration. Resulting color is return and
 [3D SDFs]: https://iquilezles.org/articles/distfunctions/
 
 [Cosine gradient]: http://dev.thi.ng/gradients/
+
+[Cheap Cloud Flythrough Shader]: https://www.shadertoy.com/view/Xsc3R4
+
+[Alien Beacon Shader]: https://www.shadertoy.com/view/ld2SzK
