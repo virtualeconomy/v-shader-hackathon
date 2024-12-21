@@ -1,10 +1,3 @@
-// Shaders used:
-// https://www.shadertoy.com/view/MdKXzc
-// https://www.shadertoy.com/view/tsVXzh
-// https://www.shadertoy.com/view/Ms2SD1
-// https://www.shadertoy.com/view/cdK3Wy
-// https://www.shadertoy.com/view/WslGz4
-// https://www.shadertoy.com/view/NslGRN
 
 //precision highp float;
 
