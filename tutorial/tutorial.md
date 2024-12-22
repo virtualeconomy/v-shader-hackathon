@@ -7,7 +7,7 @@ The tutorial also explores advanced topics, including creating water-like noise 
 
 ### 1. Basic setup
 
-For our shader, we are going to use ray tracing to render the scene. First we need to generate our rays. A ray has an origin and a direction. The origin will be our the position of our camera. From the origin, we will shoot shoot one ray per pixel in the camera's view direction.  
+For our shader, we are going to use ray tracing to render the scene. First we need to generate our rays. A ray has an origin and a direction. The origin will be our the position of our camera. From the origin, we will shoot one ray per pixel in the camera's view direction.  
 Before shooting a ray from the camera's position, we generate ray direction in the following manner:
 
 ```glsl
@@ -109,7 +109,7 @@ Then we call it like this:
 float plane_t = raytrace_plane( ro, rd, plane_normal, p0 ); // Distance to the plane
 ```
 
-If `plane_t` is greater than, then we have a hit in a the positive direction of our ray.
+If `plane_t` is greater than 0.0, then we have a hit in a the positive direction of our ray.
 
 ```glsl
 float plane_t = raytrace_plane( ro, rd, plane_normal, p0 );
@@ -118,7 +118,7 @@ if( plane_t > 0.0 )
 {
   vec3 plane_hit = ro + plane_t * rd;
   vec2 uv = abs( plane_hit.xz )
-  if all( uv <= vec2f( plane_size ) )
+  if( all( lessThanEqual( uv, vec2( plane_size ) ) ) )
   {
     // Color the plane
     // ...
@@ -132,7 +132,7 @@ float blur_radius = 10.0;
 
 // ...
 
-if all( uv <= vec2f( plane_size ) )
+if( all( lessThanEqual( uv, vec2( plane_size ) ) ) )
 {
   vec3 plane_color = vec3( 1.0 );
   final_color = mix
