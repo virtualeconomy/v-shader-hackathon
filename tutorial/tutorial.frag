@@ -658,7 +658,7 @@ vec3 draw_insides
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
   vec2 uv = ( iMouse.xy ) / iResolution.xy;
-  uv = vec2( 1.0 ) - uv;
+  uv.x = 1.0 - uv.x;
   uv.y = remap( 0.0, 1.0, -0.2, 1.0, uv.y);
   uv *= vec2( PI * 2.0, PI / 2.0 );
 
