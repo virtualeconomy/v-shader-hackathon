@@ -47,7 +47,6 @@ float smooth_box_edge( in vec3 ro )
   return max( edge_blur.x, max( edge_blur.y, edge_blur.z ) );
 }
 
-//https://en.wikipedia.org/wiki/Line%E2%80%93plane_intersection
 float raytrace_plane
 ( 
   in vec3 ro, // Ray origin
@@ -189,23 +188,6 @@ vec2 hash2dx2d( in vec2 uv )
   return fract( transform1 * sin( transform2 * uv ) );
 }
 
-float hash3dx1d( in vec3 uv ) 
-{
-  float v = dot( uv, vec3( 4099.4363 , -1193.2417, 7643.1409  ) );
-  return fract( sin( v ) * 43758.5453123 );
-}
-
-vec3 hash3dx3d( in vec3 uv ) 
-{
-  vec3 v = vec3
-  (
-    dot( uv, vec3( 701.124, -439.552, 617.622 ) ),
-    dot( uv, vec3( -821.634, 97.23, 397.754 ) ),
-    dot( uv, vec3( 67.421, 853.863, -997.933 ) )
-  );
-  return fract( sin( v ) * 43758.5453123 );
-}
-
 float perlin_noise2dx1d( in vec2 p )
 {
   vec2 i = floor( p );
@@ -254,8 +236,6 @@ float seg_shadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
   return sh;
 }
 
-// https://iquilezles.org/articles/boxfunctions/
-// https://www.shadertoy.com/view/WslGz4
 float box_soft_shadow
 ( 
   in vec3 ro, 
@@ -451,7 +431,6 @@ vec3 draw_background
   return pow( final_color, vec3( 1.0 / 2.2 ) );
 }
 
-// https://www.shadertoy.com/view/MdKXzc
 vec3 draw_nebula( in vec3 ro, in vec3 rd )
 {
   vec4 final_color = vec4( 0.0 );
@@ -490,8 +469,7 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
       // Distance to the light soure
       float ls_dst = max( length( p ), 0.001 ); 
 
-      // The color of light 
-      // https://www.shadertoy.com/view/cdK3Wy
+      // The color of the light 
       float _T = ls_dst * 2.3 + 2.6;
       vec3 light_color = 0.4 + 0.5 * cos( _T + -iTime + PI * 0.5 * vec3( -0.5, 0.15, 0.5 ) );
       final_color.rgb += vec3( 0.67, 0.75, 1.0 ) / ( ls_dst * ls_dst * 10.0 ) / 80.0; // star itself
