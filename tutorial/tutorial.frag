@@ -10,6 +10,7 @@ const float boxRI = 1.33;
 const float iorAtoB = airRI / boxRI;
 // Index of refraction Box to Air
 const float iorBtoA = boxRI / airRI;
+// Fresnel value at 0 degrees incidence
 const vec3 F0 = vec3( pow( abs( ( boxRI - airRI ) ) / ( boxRI + airRI ), 2.0 ) );
 const vec3 COLOR_ABSORPTION = vec3( 0.9 );
 // Drawing Nebula is quite expensive, so be careful with the amount of reflections
@@ -17,24 +18,31 @@ const int NUM_REFLECTIONS = 2;
 const vec3 BOX_DIMENSIONS = vec3( 0.75, 1.25, 0.75 );
 // Distance to the edges
 const vec3 BOX_DTE = vec3( length( BOX_DIMENSIONS.xz ), length( BOX_DIMENSIONS.xy ), length( BOX_DIMENSIONS.yz ) );
+// Angles of full reflections given IOR for the pair of mediums
 const float CRITICAL_ANGLE_ATOB = sqrt( max( 0.0, 1.0 - iorBtoA * iorBtoA ) );
 const float CRITICAL_ANGLE_BTOA = sqrt( max( 0.0, 1.0 - iorAtoB * iorAtoB ) );
 const float LIGHT_POWER = 15.0;
 const vec3 BOX_EDGE_COLOR = vec3( 0.0 );
-const vec3 MOON_LIGHT_DIR = normalize( vec3( -1.0, 1.0, -1.0 ) );
+// A point on a plane
 const vec3 PLANE_P = vec3( 0.0, -BOX_DIMENSIONS.y - 0.001, 0.0 );
+// A constant to us as a shotycur when creating vectors: M.xyy, M.yyx, etc...
 const vec2 M = vec2( 1.0, 0.0 );
+// Noise scale on the box's faces
 const float INSIDES_NOISE = 0.3;
+// Intensity of the waves on the box's faces
 const float WATER_INTENSITY = 0.5;
+// The size of the box on the inside
 const float INNER_BOX_SCALE = 6.0;
 const vec3 LIGHT_SOURCE = normalize( vec3( -1.0, 1.0, -1.0 ) ) * 6.0;
 
+// Uncomment to make the box transparent
 //#define TRANSPARENT_BOX
 
 float saturate( in float v ) { return clamp( v, 0.0, 1.0 ); }
 float dot2( in vec3 v ) { return dot( v, v ); }
 
 // Paint the edges in black with a little blur at transition
+// Returns the distance to the closest edge. 0 being far enougn, 1.0 being at the edge
 float smooth_box_edge( in vec3 ro )
 {
   vec3 edge_blur = smoothstep
@@ -47,6 +55,7 @@ float smooth_box_edge( in vec3 ro )
   return max( edge_blur.x, max( edge_blur.y, edge_blur.z ) );
 }
 
+// Returns the distance to the plane from `ro` in `rd` direction
 float raytrace_plane
 ( 
   in vec3 ro, // Ray origin
@@ -63,6 +72,7 @@ float raytrace_plane
   return t;
 }
 
+// Returns the distance from `ro` to `rd` to the hit points on the front and on the back.
 vec2 raytrace_sphere( in vec3 ro, in vec3 rd, in vec3 ce, in float ra )
 {
   vec3 oc = ro - ce;
@@ -74,6 +84,7 @@ vec2 raytrace_sphere( in vec3 ro, in vec3 rd, in vec3 ce, in float ra )
   return vec2( -b - h, -b + h );
 }
 
+// Based on the `entering` parameters, returns a distance to the front/back of the box from `ro` in `rd` direction
 float raytrace_box
 (
   in vec3 ro, 
@@ -126,7 +137,8 @@ float raytrace_box
 // Different utilities
 //
 
-// Schlick ver.
+// Schlick version of the Fresnel equation
+// Calculates the amount of light reflected, seperately for each color channel.
 vec3 fresnel( in vec3 view_dir, in  vec3 halfway, in vec3 f0, in float critical_angle_cosine )
 {
   float VdotH = dot( view_dir, halfway );
@@ -139,6 +151,7 @@ vec3 fresnel( in vec3 view_dir, in  vec3 halfway, in vec3 f0, in float critical_
   return f0 + ( 1.0 - f0 ) * pow( ( 1.0 - VdotH ), 5.0 );
 }
 
+// 3D rotation matrix around the Z axis
 mat3 rotz( in float angle )
 {
   float s = sin( angle );
@@ -151,6 +164,7 @@ mat3 rotz( in float angle )
   );
 }
 
+// 3D rotation matrix around the X axis
 mat3 rotx( in float angle )
 {
   float s = sin( angle );
@@ -163,6 +177,7 @@ mat3 rotx( in float angle )
   );
 }
 
+// 3D rotation matrix around the Y axis
 mat3 roty( in float angle )
 {
   float s = sin( angle );
@@ -175,12 +190,14 @@ mat3 roty( in float angle )
   );
 }
 
+// Simple 2D -> 1D hash
 float hash2dx1d( in vec2 p ) 
 {
 	float h = dot( p, vec2( 127.1,311.7 ) );	
   return fract( sin( h ) * 43758.5453123 );
 }
 
+// Simple 2D -> 2D hash
 vec2 hash2dx2d( in vec2 uv ) 
 {
   mat2 transform1 = mat2( -199.258, 457.1819, -1111.1895, 2244.185 );
@@ -188,6 +205,7 @@ vec2 hash2dx2d( in vec2 uv )
   return fract( transform1 * sin( transform2 * uv ) );
 }
 
+// One-dimensional variation of Perlin noise
 float perlin_noise2dx1d( in vec2 p )
 {
   vec2 i = floor( p );
@@ -202,6 +220,8 @@ float perlin_noise2dx1d( in vec2 p )
   return noise * 2.0 - 1.0;
 }
 
+// Convert a value in the range [ t_min_in, t_max_in ] to a value in the range [ t_min_out, t_max_out ]
+// Example: 0.0 in the range [ -1.0, 1.0 ] will be 0.5 in the range [ 0.0, 1.0 ]
 float remap
 ( 
   in float t_min_in, 
@@ -215,6 +235,7 @@ float remap
   return mix( t_min_out, t_max_out, k );
 }
 
+// Calculates the shadow for one of the box's faces. Is us
 float seg_shadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
 {
   float k1 = 1.0 - rd.x * rd.x;
@@ -236,12 +257,13 @@ float seg_shadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
   return sh;
 }
 
+// Returns how much the point `ro` is in the shadow
 float box_soft_shadow
 ( 
-  in vec3 ro, 
-  in vec3 rd,
-  in vec3 rad,   // box semi-size
-  in float sk  
+  in vec3 ro,  // Ray origin
+  in vec3 rd,  // Direction to the light source
+  in vec3 rad, // box semi-size
+  in float sk  // softness of the shadow
 ) 
 {
   vec3 m = 1.0 / rd;
@@ -264,6 +286,7 @@ float box_soft_shadow
   return 0.0;
 }
 
+// The base noise for the water noise
 float water_octave( in vec2 uv, in float choppy )
 {
   // Offset the uv value in y = x direction by the noise value
@@ -274,7 +297,7 @@ float water_octave( in vec2 uv, in float choppy )
   return pow( 1.0 - pow( s_wave.x * s_wave.y, 0.65 ), choppy );
 }
 
-// Fbm based sea noise
+// FBM of the `water_octave` noise
 float water_noise( in vec2 p )
 {
   float freq = 0.16;
@@ -301,6 +324,7 @@ float water_noise( in vec2 p )
   return h;
 }
 
+// Calculates the normal of the `water_noise` at `p` position
 vec3 water_normal( in vec2 p )
 {
   float e = 0.01;
@@ -311,6 +335,7 @@ vec3 water_normal( in vec2 p )
   return normal;
 }
 
+// 3D Signed Distance Function of the torus
 float sdf_torus( in vec3 p, in vec3 t )
 {
   vec2 q = vec2( length( p.xz ) - t.x, p.y );
@@ -347,6 +372,7 @@ float nebula_noise( in vec3 p )
   return result;
 }
 
+// Return the weight of each color channel based on the distance from the center and the current total density
 vec3 nebula_color( in float density, in float radius )
 {
   // Color based on density alone, gives impression of occlusion within the media
@@ -359,6 +385,7 @@ vec3 nebula_color( in float density, in float radius )
   return result;
 }
 
+// Background color
 vec3 bgcol( in vec3 rd )
 {
   return mix
@@ -414,6 +441,7 @@ vec3 draw_background
       float shad = box_soft_shadow( plane_hit, normalize( LIGHT_SOURCE - plane_hit ), BOX_DIMENSIONS, 2.0 );
       plane_color *= smoothstep( -0.2, 1.0, shad );
 
+      // Radially smooth the surface of the plane
       final_color = mix
       ( 
         plane_color, 
@@ -428,6 +456,7 @@ vec3 draw_background
     }
   }
 
+  // Enhance the darker parts
   return pow( final_color, vec3( 1.0 / 2.2 ) );
 }
 
@@ -441,9 +470,13 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
   float optimal_radius = 3.0;
   float k = optimal_radius / radius;
 
+  // Current position as we step through the medium
   vec3 p;
+  // Density at the point
   float local_density = 0.0;
+  // Total accumulated density up to that point
   float total_density = 0.0;
+  // Influence of the current point to the overall calculations
   float weight = 0.0;
 
   vec2 vt = raytrace_sphere( ro, rd, vec3( 0.0 ), radius );
@@ -472,8 +505,10 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
       // The color of the light 
       float _T = ls_dst * 2.3 + 2.6;
       vec3 light_color = 0.4 + 0.5 * cos( _T + -iTime + PI * 0.5 * vec3( -0.5, 0.15, 0.5 ) );
-      final_color.rgb += vec3( 0.67, 0.75, 1.0 ) / ( ls_dst * ls_dst * 10.0 ) / 80.0; // star itself
-      final_color.rgb += light_color / exp( ls_dst * ls_dst * ls_dst * 0.08 ) / 30.0; // bloom
+      // Star in the middle
+      final_color.rgb += vec3( 0.67, 0.75, 1.0 ) / ( ls_dst * ls_dst * 10.0 ) / 80.0; 
+      // Star's bloom
+      final_color.rgb += light_color / exp( ls_dst * ls_dst * ls_dst * 0.08 ) / 30.0;
 
       if( d < h )
       {
@@ -509,6 +544,7 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
   return smoothstep( vec3( 0.0 ), vec3( 1.0 ), final_color.rgb );
 }
 
+// Divides the `uv` space into a grid and generates a one star in each cell( Calculates the color based on the gragment's cell_id and cell_coords )
 vec3 generate_stars
 (
   in vec2 uv,
@@ -522,8 +558,10 @@ vec3 generate_stars
   vec2 cell_id = floor( uv );
   vec2 cell_coords = fract( uv ) - 0.5;
   vec2 star_coords = hash2dx2d( cell_id ) - 0.5;
+  // Move the star, to have it fully fit inside the cell
   star_coords -= sign( star_coords ) * max( vec2( star_size ) - vec2( 0.5 ) + abs( star_coords ), vec2( 0.0 ) );
 
+  // Vector from the cell's center to the star's center
   vec2 delta_coords = abs( star_coords - cell_coords );
   // Distance to the star from the cell center
   float dist = length( delta_coords );
@@ -533,6 +571,7 @@ vec3 generate_stars
 
   if( with_flare )
   {
+    // Animate the flare
     float flare_change = remap( -1.0, 1.0, 0.5, 1.0, sin( iTime * 3.0 + uv.x * uv.y ) );
     float flares = smoothstep( flares_width, 0.0, delta_coords.x ) + smoothstep( flares_width, 0.0, delta_coords.y );
     flares *= smoothstep( star_size * flare_change, 0.0, dist );
@@ -543,6 +582,7 @@ vec3 generate_stars
   return glow * brightness;
 }
 
+// Draws stars on the sphere based on the view direction
 vec3 draw_stars( in vec3 rd )
 {
   vec3 final_color = vec3( 0.0 );
@@ -555,6 +595,7 @@ vec3 draw_stars( in vec3 rd )
   // [ 1/2PI, 1/PI ]
   vec2 normalization = vec2( 0.1591, 0.3183 );
   vec2 uv = vec2( phi, theta ) * normalization + vec2( 0.5 );
+  
   float grid_size = 10.0;
   float star_size = 0.1;
   float flares_width = 0.08 * star_size;
@@ -582,6 +623,7 @@ vec3 draw_stars( in vec3 rd )
   return final_color;
 }
 
+// Draws a scene within the box
 vec3 draw_box_background
 (
   in vec3 ro,
@@ -596,6 +638,7 @@ vec3 draw_box_background
   return final_color;
 }
 
+// Draws box's insides
 vec3 draw_insides
 (
   in vec3 ro,
@@ -657,13 +700,15 @@ vec3 draw_insides
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
+  // Get the spherical coordinates from the mouse's coordinates
   vec2 uv = ( iMouse.xy ) / iResolution.xy;
   uv.x = 1.0 - uv.x;
   uv.y = remap( 0.0, 1.0, -0.2, 1.0, uv.y);
   uv *= vec2( PI * 2.0, PI / 2.0 );
 
-  // Ray origin
+  // Camera's origin based on the spherical coordinates
   vec3 ro = vec3( sin( uv.x ) * cos( uv.y ), sin( uv.y ), cos( uv.x ) * cos( uv.y ) ) * 2.5;
+  // Animate camera's rotation around the Y axes
   ro = roty( -iTime / 4.0 ) * ro;
   
   vec3 view_dir = normalize( -ro );

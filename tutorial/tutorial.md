@@ -327,14 +327,12 @@ float seg_shadow( in vec3 ro, in vec3 rd, in vec3 pa, in float sh )
   return sh;
 }
 
-// https://iquilezles.org/articles/boxfunctions/
-// https://www.shadertoy.com/view/WslGz4
 float box_soft_shadow
 ( 
-  in vec3 ro, 
-  in vec3 rd,
-  in vec3 rad,   // box semi-size
-  in float sk  
+  in vec3 ro,  // Ray origin
+  in vec3 rd,  // Direction to the light source
+  in vec3 rad, // box semi-size
+  in float sk  // softness of the shadow  
 ) 
 {
   vec3 m = 1.0 / rd;
@@ -568,6 +566,23 @@ Light splits into two components, meaning its energy is divided. We use the Fres
 const vec3 F0 = vec3( pow( abs( ( boxRI - airRI ) ) / ( boxRI + airRI ), 2.0 ) );
 const float CRITICAL_ANGLE_ATOB = sqrt( max( 0.0, 1.0 - iorBtoA * iorBtoA ) );
 const float CRITICAL_ANGLE_BTOA = sqrt( max( 0.0, 1.0 - iorAtoB * iorAtoB ) );
+
+// ...
+
+// Schlick version of the Fresnel equation
+// Calculates the amount of light reflected, seperately for each color channel.
+vec3 fresnel( in vec3 view_dir, in  vec3 halfway, in vec3 f0, in float critical_angle_cosine )
+{
+  float VdotH = dot( view_dir, halfway );
+  // Case of full reflection
+  if( VdotH < critical_angle_cosine ) 
+  {
+    return vec3( 1.0 );
+  }
+
+  return f0 + ( 1.0 - f0 ) * pow( ( 1.0 - VdotH ), 5.0 );
+}
+
 // ...
 
 if( box_t > 0.0 )
@@ -682,7 +697,8 @@ To create a `glow`, we will use an exponent of the distance to the star scaled b
 To make the appearance more randomized, we will introduce the `brightness` parameter, which will influence the intensity of the `glow`. The brightness will be determined by using a hash function with the cell ID, just like we did for the star's position:
 
 ```glsl
-
+// Convert a value in the range [ t_min_in, t_max_in ] to a value in the range [ t_min_out, t_max_out ]
+// Example: 0.0 in the range [ -1.0, 1.0 ] will be 0.5 in the range [ 0.0, 1.0 ]
 float remap
 ( 
   in float t_min_in, 
