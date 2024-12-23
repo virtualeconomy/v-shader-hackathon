@@ -349,9 +349,9 @@ float box_soft_shadow
   if( tN > tF || tF < 0.0 )
   {
     float sh = 1.0;
-    sh = segShadow( ro.xyz, rd.xyz, rad.xyz, sh );
-    sh = segShadow( ro.yzx, rd.yzx, rad.yzx, sh );
-    sh = segShadow( ro.zxy, rd.zxy, rad.zxy, sh );
+    sh = seg_shadow( ro.xyz, rd.xyz, rad.xyz, sh );
+    sh = seg_shadow( ro.yzx, rd.yzx, rad.yzx, sh );
+    sh = seg_shadow( ro.zxy, rd.zxy, rad.zxy, sh );
     return smoothstep( 0.0, 1.0, sk * sqrt( sh ) );
   }
   return 0.0;
@@ -386,7 +386,7 @@ To create noise, we need a hashing function - a mapping from one value to anothe
 ```glsl
 float hash2dx1d( in vec2 p ) 
 {
-	float h = dot( p, vec2( 127.1,311.7 ) );	
+  float h = dot( p, vec2( 127.1,311.7 ) );	
   return fract( sin( h ) * 43758.5453123 );
 }
 ```
@@ -522,7 +522,7 @@ To sample the noise, we need to get the UV coordinates for the box's face.
 const float INSIDES_NOISE = 0.3
 
 vec2 uv = ro.xy * w.z + ro.xz * w.y + ro.yz * w.x;
-uv *= INSIDES_NOISE
+uv *= INSIDES_NOISE;
 ```
 
 The `INSIDES_NOISE` constant allows you to control the scale of the noise.  
@@ -574,7 +574,7 @@ if( box_t > 0.0 )
 {
   // ...
   // New
-  vec3 F = fresnel( prev_rd, n, F0, CRITICAL_ANGLE_BTOA );
+  vec3 F = fresnel( -rd, n, F0, CRITICAL_ANGLE_BTOA );
   vec3 refractedRD = refract( rd, n, iorAtoB );
   vec3 reflectedRD = normalize( reflect( rd, n ) );
   
@@ -784,6 +784,8 @@ for( int i = 2; i < 5; i++ )
   star_size *= star_size_change;
   grid_size *= grid_size_change;
 }
+
+return final_color;
 ```
 
 <p align="center">
@@ -835,7 +837,7 @@ The second part of the nebula's noise will incorporate 3D [Signed Distance Funct
 ```glsl
 float sdf_torus( in vec3 p, in vec3 t )
 {
-  vec2 q = vec2( length2( p.xz ) - t.x, p.y );
+  vec2 q = vec2( length( p.xz ) - t.x, p.y );
   return max( length( q ) - t.y, abs( p.y ) - t.z );
 }
 ```
