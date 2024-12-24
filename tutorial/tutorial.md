@@ -597,6 +597,15 @@ if( box_t > 0.0 )
 }
 ```
 
+Due to the shape of the waves, the reflected direction may point inside of the box, which will result in the wrong reflection. To remove this artifact, we check for the direction of the reflected ray and, if needed, reflect it again against the box's surface normal:
+
+```glsl
+if( dot( reflectedRD, box_normal ) <= 0.0 )
+{
+  reflectedRD = normalize( reflect( reflectedRD, box_normal ) );
+}
+```
+
 Links:
 - [Refractive Index]
 - [List of refractive indices]
