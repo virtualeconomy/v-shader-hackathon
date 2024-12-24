@@ -18,7 +18,7 @@ float map(vec3 p)
 	float d = 2.0;
 	for (int i = 0; i < 16; i++) {
 		float fi = float(i);
-		float time = iTime * (fract(fi * 412.531 + 0.513) - 0.5) * 2.0;
+		float time = u_time * (fract(fi * 412.531 + 0.513) - 0.5) * 2.0;
 		d = opSmoothUnion(
             sdSphere(p + sin(time + fi * vec3(52.5126, 64.62744, 632.25)) * vec3(2.0, 2.0, 0.8), mix(0.5, 1.0, fract(fi * 412.531 + 0.5124))),
 			d,
@@ -38,12 +38,12 @@ vec3 calcNormal( in vec3 p )
                       k.xxx*map( p + k.xxx*h ) );
 }
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
+void render_image( out vec4 fragColor, in vec2 fragCoord )
 {
-    vec2 uv = fragCoord/iResolution.xy;
+    vec2 uv = fragCoord/u_resolution.xy;
     
     // screen size is 6m x 6m
-	vec3 rayOri = vec3((uv - 0.5) * vec2(iResolution.x/iResolution.y, 1.0) * 6.0, 3.0);
+	vec3 rayOri = vec3((uv - 0.5) * vec2(u_resolution.x/u_resolution.y, 1.0) * 6.0, 3.0);
 	vec3 rayDir = vec3(0.0, 0.0, -1.0);
 	
 	float depth = 0.0;
@@ -61,7 +61,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     depth = min(6.0, depth);
 	vec3 n = calcNormal(p);
     float b = max(0.0, dot(n, vec3(0.577)));
-    vec3 col = (0.5 + 0.5 * cos((b + iTime * 3.0) + uv.xyx * 2.0 + vec3(0,2,4))) * (0.85 + b * 0.35);
+    vec3 col = (0.5 + 0.5 * cos((b + u_time * 3.0) + uv.xyx * 2.0 + vec3(0,2,4))) * (0.85 + b * 0.35);
     col *= exp( -depth * 0.15 );
 	
     // maximum thickness is 2m in alpha channel

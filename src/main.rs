@@ -188,19 +188,19 @@ fn prepare_shader(shadertoy_code: &str) -> String {
     format!("#version 300 es 
 precision mediump float;
 
-uniform vec3 iResolution; // image/buffer	The viewport resolution (z is pixel aspect ratio, usually 1.0)
-uniform float	iTime; // image/sound/buffer	Current time in seconds
-uniform float	iTimeDelta; // image/buffer	Time it takes to render a frame, in seconds
-uniform int	iFrame; // image/buffer	Current frame
-uniform float	iFrameRate; // image/buffer	Number of frames rendered per second
-uniform vec4	iMouse; // image/buffer	xy = current pixel coords (if LMB is down). zw = click pixel
-uniform vec4	iDate; // image/buffer/sound	Year, month, day, time in seconds in .xyzw
+uniform vec3 u_resolution; // image/buffer	The viewport resolution (z is pixel aspect ratio, usually 1.0)
+uniform float	u_time; // image/sound/buffer	Current time in seconds
+uniform float	u_time_delta; // image/buffer	Time it takes to render a frame, in seconds
+uniform int	u_frame; // image/buffer	Current frame
+uniform float	u_frame_rate; // image/buffer	Number of frames rendered per second
+uniform vec4	u_mouse; // image/buffer	xy = current pixel coords (if LMB is down). zw = click pixel
+uniform vec4	u_date; // image/buffer/sound	Year, month, day, time in seconds in .xyzw
 {shadertoy_code}
 in vec2 vUv;
 out vec4 frag_color;
 
 void main() {{
-    mainImage(frag_color, vUv * iResolution.xy);
+    render_image(frag_color, vUv * u_resolution.xy);
 }}")
 }
 
@@ -349,13 +349,13 @@ fn run() -> Result<(), gl::WebglError> {
     let mut reload_webgl2_context = false;
     let mut player_state = PlayerState::default();
 
-    let mut resolution_loc = gl.get_uniform_location(&program, "iResolution");
-    let mut time_loc = gl.get_uniform_location(&program, "iTime");
-    let mut time_delta_loc = gl.get_uniform_location(&program, "iTimeDelta");
-    let mut frame_loc = gl.get_uniform_location(&program, "iFrame");
-    let mut frame_rate_loc = gl.get_uniform_location(&program, "iFrameRate");
-    let mut mouse_loc = gl.get_uniform_location(&program, "iMouse");
-    let mut date_loc = gl.get_uniform_location(&program, "iDate");
+    let mut resolution_loc = gl.get_uniform_location(&program, "u_resolution");
+    let mut time_loc = gl.get_uniform_location(&program, "u_time");
+    let mut time_delta_loc = gl.get_uniform_location(&program, "u_time_delta");
+    let mut frame_loc = gl.get_uniform_location(&program, "u_frame");
+    let mut frame_rate_loc = gl.get_uniform_location(&program, "u_frame_rate");
+    let mut mouse_loc = gl.get_uniform_location(&program, "u_mouse");
+    let mut date_loc = gl.get_uniform_location(&program, "u_date");
 
     // Define the update and draw logic
     let update_and_draw = move |mut t: f64| {
@@ -390,13 +390,13 @@ fn run() -> Result<(), gl::WebglError> {
                 Ok(new_program) => {
                     program = new_program;
                     gl.use_program(Some(&program));
-                    resolution_loc = gl.get_uniform_location(&program, "iResolution");
-                    time_loc = gl.get_uniform_location(&program, "iTime");
-                    time_delta_loc = gl.get_uniform_location(&program, "iTimeDelta");
-                    frame_loc = gl.get_uniform_location(&program, "iFrame");
-                    frame_rate_loc = gl.get_uniform_location(&program, "iFrameRate");
-                    mouse_loc = gl.get_uniform_location(&program, "iMouse");
-                    date_loc = gl.get_uniform_location(&program, "iDate");
+                    resolution_loc = gl.get_uniform_location(&program, "u_resolution");
+                    time_loc = gl.get_uniform_location(&program, "u_time");
+                    time_delta_loc = gl.get_uniform_location(&program, "u_time_delta");
+                    frame_loc = gl.get_uniform_location(&program, "u_frame");
+                    frame_rate_loc = gl.get_uniform_location(&program, "u_frame_rate");
+                    mouse_loc = gl.get_uniform_location(&program, "u_mouse");
+                    date_loc = gl.get_uniform_location(&program, "u_date");
                     gl::info!("shader reloaded");
                 }
                 Err(error) => {
@@ -422,7 +422,7 @@ fn run() -> Result<(), gl::WebglError> {
             return true;
         }
 
-        // iResolution
+        // u_resolution
         if let Some(Uniforms {
             resolution: Some(resolution),
             ..
@@ -469,7 +469,7 @@ fn run() -> Result<(), gl::WebglError> {
             (last_playback_time, playback_time_delta)
         };
 
-        // iTime
+        // u_time
         gl.uniform1f(
             time_loc.as_ref(),
             if let Some(Uniforms {
@@ -483,7 +483,7 @@ fn run() -> Result<(), gl::WebglError> {
             },
         );
 
-        // iTimeDelta
+        // u_time_delta
         let time_delta = if let Some(Uniforms {
             time_delta: Some(fixed_time_delta),
             ..
@@ -496,7 +496,7 @@ fn run() -> Result<(), gl::WebglError> {
         gl.uniform1f(time_delta_loc.as_ref(), time_delta);
         last_real_time = t;
 
-        // iFrame
+        // u_frame
         gl.uniform1f(
             frame_loc.as_ref(),
             if let Some(Uniforms {
@@ -511,7 +511,7 @@ fn run() -> Result<(), gl::WebglError> {
         );
         frame += 1f32;
 
-        // iFrameRate
+        // u_frame_rate
         gl.uniform1f(
             frame_rate_loc.as_ref(),
             if let Some(Uniforms {
@@ -525,7 +525,7 @@ fn run() -> Result<(), gl::WebglError> {
             },
         );
 
-        // iMouse
+        // u_mouse
         if let Some(Uniforms {
             mouse:
                 Some(MouseUniform {
@@ -540,7 +540,7 @@ fn run() -> Result<(), gl::WebglError> {
             gl.uniform4f(mouse_loc.as_ref(), x, y, down_x, down_y);
         }
 
-        // iDate
+        // u_date
         if let Some(Uniforms {
             date: Some(replaced_date),
             ..

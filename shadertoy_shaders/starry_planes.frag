@@ -3,8 +3,8 @@
 //  A simple result that I think turned out pretty nice
 //  URL: https://www.shadertoy.com/view/MfjyWK
 
-#define TIME        iTime
-#define RESOLUTION  iResolution
+#define TIME        u_time
+#define RESOLUTION  u_resolution
 
 #define ROT(a)      mat2(cos(a), sin(a), -sin(a), cos(a))
 
@@ -170,7 +170,7 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p) {
 
 }
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+void render_image( out vec4 fragColor, in vec2 fragCoord ) {
   vec2 r = RESOLUTION.xy, q = fragCoord/r, pp = -1.0+2.0*q, p = pp;
   p.x *= r.x/r.y;
 

@@ -615,10 +615,10 @@ mat3 setCamera( in vec3 ro, in vec3 ta, float cr )
     return mat3( cu, cv, cw );
 }
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
+void render_image( out vec4 fragColor, in vec2 fragCoord )
 {
-    vec2 mo = iMouse.xy/iResolution.xy;
-	float time = 32.0 + iTime*1.5;
+    vec2 mo = u_mouse.xy/u_resolution.xy;
+	float time = 32.0 + u_time*1.5;
 
     // camera	
     vec3 ta = vec3( 0.25, -0.75, -0.75 );
@@ -633,9 +633,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     {
         // pixel coordinates
         vec2 o = vec2(float(m),float(n)) / float(AA) - 0.5;
-        vec2 p = (2.0*(fragCoord+o)-iResolution.xy)/iResolution.y;
+        vec2 p = (2.0*(fragCoord+o)-u_resolution.xy)/u_resolution.y;
 #else    
-        vec2 p = (2.0*fragCoord-iResolution.xy)/iResolution.y;
+        vec2 p = (2.0*fragCoord-u_resolution.xy)/u_resolution.y;
 #endif
 
         // focal length
@@ -645,8 +645,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         vec3 rd = ca * normalize( vec3(p,fl) );
 
          // ray differentials
-        vec2 px = (2.0*(fragCoord+vec2(1.0,0.0))-iResolution.xy)/iResolution.y;
-        vec2 py = (2.0*(fragCoord+vec2(0.0,1.0))-iResolution.xy)/iResolution.y;
+        vec2 px = (2.0*(fragCoord+vec2(1.0,0.0))-u_resolution.xy)/u_resolution.y;
+        vec2 py = (2.0*(fragCoord+vec2(0.0,1.0))-u_resolution.xy)/u_resolution.y;
         vec3 rdx = ca * normalize( vec3(px,fl) );
         vec3 rdy = ca * normalize( vec3(py,fl) );
         

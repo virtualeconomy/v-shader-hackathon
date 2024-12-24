@@ -6,7 +6,7 @@ float sun(vec2 uv, float battery)
 {
  	float val = smoothstep(0.3, 0.29, length(uv));
  	float bloom = smoothstep(0.7, 0.0, length(uv));
-    float cut = 3.0 * sin((uv.y + iTime * 0.2 * (battery + 0.02)) * 100.0) 
+    float cut = 3.0 * sin((uv.y + u_time * 0.2 * (battery + 0.02)) * 100.0) 
 				+ clamp(uv.y * 14.0 + 1.0, -6.0, 6.0);
     cut = clamp(cut, 0.0, 1.0);
     return clamp(val * cut, 0.0, 1.0) + bloom * 0.6;
@@ -15,7 +15,7 @@ float sun(vec2 uv, float battery)
 float grid(vec2 uv, float battery)
 {
     vec2 size = vec2(uv.y, uv.y * uv.y * 0.2) * 0.01;
-    uv += vec2(0.0, iTime * 4.0 * (battery + 0.05));
+    uv += vec2(0.0, u_time * 4.0 * (battery + 0.05));
     uv = abs(fract(uv) - 0.5);
  	vec2 lines = smoothstep(size, vec2(0.0), uv);
  	lines += smoothstep(size * 5.0, vec2(0.0), uv) * 0.4 * battery;
@@ -73,11 +73,11 @@ float sdCloud(in vec2 p, in vec2 a1, in vec2 b1, in vec2 a2, in vec2 b2, float w
     return min(uniVal1, uniVal2);
 }
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
+void render_image( out vec4 fragColor, in vec2 fragCoord )
 {
-    vec2 uv = (2.0 * fragCoord.xy - iResolution.xy)/iResolution.y;
+    vec2 uv = (2.0 * fragCoord.xy - u_resolution.xy)/u_resolution.y;
     float battery = 1.0;
-    //if (iMouse.x > 1.0 && iMouse.y > 1.0) battery = iMouse.y / iResolution.y;
+    //if (iMouse.x > 1.0 && iMouse.y > 1.0) battery = iMouse.y / u_resolution.y;
     //else battery = 0.8;
     
     //if (abs(uv.x) < (9.0 / 16.0))
@@ -111,7 +111,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
             
             // fuji
             float fujiVal = sdTrapezoid( uv  + vec2(-0.75+sunUV.y * 0.0, 0.5), 1.75 + pow(uv.y * uv.y, 2.1), 0.2, 0.5);
-            float waveVal = uv.y + sin(uv.x * 20.0 + iTime * 2.0) * 0.05 + 0.2;
+            float waveVal = uv.y + sin(uv.x * 20.0 + u_time * 2.0) * 0.05 + 0.2;
             float wave_width = smoothstep(0.0,0.01,(waveVal));
             
             // fuji color
@@ -128,8 +128,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
             
             // cloud
             vec2 cloudUV = uv;
-            cloudUV.x = mod(cloudUV.x + iTime * 0.1, 4.0) - 2.0;
-            float cloudTime = iTime * 0.5;
+            cloudUV.x = mod(cloudUV.x + u_time * 0.1, 4.0) - 2.0;
+            float cloudTime = u_time * 0.5;
             float cloudY = -0.5;
             float cloudVal1 = sdCloud(cloudUV, 
                                      vec2(0.1 + sin(cloudTime + 140.5)*0.1,cloudY), 

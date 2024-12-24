@@ -405,7 +405,7 @@ float ao(vec3 p, vec3 n, float h) { return clamp(map(p + h * n).d / h, 0., 1.); 
 
 /**********************************************************************************/
 vec3 vignette(vec3 col, vec2 fragCoord) {
-	vec2 q = fragCoord.xy / iResolution.xy;
+	vec2 q = fragCoord.xy / u_resolution.xy;
 	col *= .5 + .5 * pow(16. * q.x * q.y * (1. - q.x) * (1. - q.y), .4);
 	return col;
 }
@@ -449,7 +449,7 @@ vec3 getSceneColor(vec3 ro, vec3 rd) {
 	return applyLighting(p, rd, d, h) + fireShock() * .3 + g;
 }
 
-void mainImage(out vec4 fragColor, vec2 fragCoord) {
+void render_image(out vec4 fragColor, vec2 fragCoord) {
 	edWalk = 1.;
 	edTwist = 0.;
 	edDown = 0.;
@@ -460,7 +460,7 @@ void mainImage(out vec4 fragColor, vec2 fragCoord) {
 	// Camera.
 	vec3 ro, lookAt, col;
 	float startScene, endScene, dim,
-	      time = mod(iTime, 55.);
+	      time = mod(u_time, 55.);
 	if (time < 12.) {
 		startScene = 0.;
 		endScene = 12.;
@@ -514,7 +514,7 @@ void mainImage(out vec4 fragColor, vec2 fragCoord) {
 			vec2 coord = fragCoord;
 #endif
 			coord += (fract(fireShock() * vec2(23242.232, 978.23465)) - .5) * 10.;
-			vec2 uv = (coord - .5 * iResolution.xy) / iResolution.y;
+			vec2 uv = (coord - .5 * u_resolution.xy) / u_resolution.y;
 			col += getSceneColor(ro, getRayDir(ro, lookAt, uv));
 #ifdef AA
 		}

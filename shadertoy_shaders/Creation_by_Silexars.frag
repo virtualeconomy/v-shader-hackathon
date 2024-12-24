@@ -6,7 +6,7 @@
 #define t iTime
 #define r iResolution.xy
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord ){
+void render_image( out vec4 fragColor, in vec2 fragCoord ){
 	vec3 c;
 	float l,z=t;
 	for(int i=0;i<3;i++) {

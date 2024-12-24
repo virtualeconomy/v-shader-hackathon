@@ -28,10 +28,10 @@ float box( vec3 p, vec3 b ) {
 float ifsBox(vec3 p) {
     for (int i=0; i<5; i++) {
         p = abs(p) - 1.0;
-        p.xy *= rot(iTime*0.3);
-        p.xz *= rot(iTime*0.1);
+        p.xy *= rot(u_time*0.3);
+        p.xz *= rot(u_time*0.1);
     }
-    p.xz *= rot(iTime);
+    p.xz *= rot(u_time);
     return box(p, vec3(0.4,0.8,0.3));
 }
 
@@ -44,13 +44,13 @@ float map(vec3 p, vec3 cPos) {
     return ifsBox(p1);
 }
 
-void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-    vec2 p = (fragCoord.xy * 2.0 - iResolution.xy) / min(iResolution.x, iResolution.y);
+void render_image( out vec4 fragColor, in vec2 fragCoord ) {
+    vec2 p = (fragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
 
-    vec3 cPos = vec3(0.0,0.0, -3.0 * iTime);
-    // vec3 cPos = vec3(0.3*sin(iTime*0.8), 0.4*cos(iTime*0.3), -6.0 * iTime);
+    vec3 cPos = vec3(0.0,0.0, -3.0 * u_time);
+    // vec3 cPos = vec3(0.3*sin(u_time*0.8), 0.4*cos(u_time*0.3), -6.0 * u_time);
     vec3 cDir = normalize(vec3(0.0, 0.0, -1.0));
-    vec3 cUp  = vec3(sin(iTime), 1.0, 0.0);
+    vec3 cUp  = vec3(sin(u_time), 1.0, 0.0);
     vec3 cSide = cross(cDir, cUp);
 
     vec3 ray = normalize(cSide * p.x + cUp * p.y + cDir);
@@ -64,7 +64,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
         float dist = map(pos, cPos);
         dist = max(abs(dist), 0.02);
         float a = exp(-dist*3.0);
-        if (mod(length(pos)+24.0*iTime, 30.0) < 3.0) {
+        if (mod(length(pos)+24.0*u_time, 30.0) < 3.0) {
             a *= 2.0;
             acc2 += a;
         }
