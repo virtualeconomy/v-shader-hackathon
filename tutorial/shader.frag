@@ -412,7 +412,7 @@ float water_noise( in vec2 p )
   for ( int i = 0; i < 5; i++ )
   {
     // Calculate the noise value for the current octave
-    float d = water_octave( ( p + iTime / 2.0 ) * freq, choppy ) + water_octave( ( p - iTime / 2.0 ) * freq, choppy );
+    float d = water_octave( ( p + u_time / 2.0 ) * freq, choppy ) + water_octave( ( p - u_time / 2.0 ) * freq, choppy );
 
     // Accumulate the noise value
     h += d * amp;
@@ -672,7 +672,7 @@ vec3 draw_nebula( in vec3 ro, in vec3 rd )
 
       // Calculate the color of the bloom
       float _T = ls_dst * 2.3 + 2.6;
-      vec3 light_color = 0.4 + 0.5 * cos( _T - iTime + PI * 0.5 * vec3( -0.5, 0.15, 0.5 ) );
+      vec3 light_color = 0.4 + 0.5 * cos( _T - u_time + PI * 0.5 * vec3( -0.5, 0.15, 0.5 ) );
 
       // Add the star color to the final color
       final_color.rgb += vec3( 0.67, 0.75, 1.0 ) / ( ls_dst * ls_dst * 10.0 ) / 80.0;
@@ -762,7 +762,7 @@ vec3 generate_stars
   if ( with_flare )
   {
     // Animate the flare
-    float flare_change = remap( -1.0, 1.0, 0.5, 1.0, sin( iTime * 3.0 + uv.x * uv.y ) );
+    float flare_change = remap( -1.0, 1.0, 0.5, 1.0, sin( u_time * 3.0 + uv.x * uv.y ) );
 
     // Calculate the flares
     float flares = smoothstep( flares_width, 0.0, delta_coords.x ) + smoothstep( flares_width, 0.0, delta_coords.y );
@@ -936,10 +936,10 @@ vec3 draw_insides
 }
 
 // Main function to render the scene
-void mainImage( out vec4 fragColor, in vec2 fragCoord )
+void render_image( out vec4 fragColor, in vec2 fragCoord )
 {
   // Calculate the UV coordinates from the mouse position
-  vec2 uv = ( iMouse.xy ) / iResolution.xy;
+  vec2 uv = ( u_mouse.xy ) / u_resolution.xy;
   uv.x = 1.0 - uv.x;
   uv.y = remap( 0.0, 1.0, -0.2, 1.0, uv.y );
   uv *= vec2( PI * 2.0, PI / 2.0 );
@@ -948,7 +948,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
   vec3 ro = vec3( sin( uv.x ) * cos( uv.y ), sin( uv.y ), cos( uv.x ) * cos( uv.y ) ) * 2.5;
 
   // Animate the camera's rotation around the Y axis
-  ro = roty( -iTime / 4.0 ) * ro;
+  ro = roty( -u_time / 4.0 ) * ro;
 
   // Calculate the view direction and up vector
   vec3 view_dir = normalize( -ro );
@@ -962,7 +962,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
   mat3 m = mat3( vx, vy, vz );
 
   // Calculate the ray direction
-  vec3 rd = vec3( ( fragCoord * 2.0 - iResolution.xy ) / iResolution.x, 0.7 );
+  vec3 rd = vec3( ( fragCoord * 2.0 - u_resolution.xy ) / u_resolution.x, 0.7 );
   rd = normalize( m * rd );
 
   // Initialize the final color
