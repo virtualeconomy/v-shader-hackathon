@@ -1,5 +1,7 @@
 # Usage
 
+Please note that, in accordance with the limits imposed by the V Hackathon, your shader build file cannot exceed 16kb. The tutorials included in this repository may offer insights into more complex shader functionalities, e.g., mouse interactions – they are not mandatory to join the Hackathon and can be integrated only as long as the size of the file does not exceed 16kb.
+
 All for viewing example just host /dist folder for example by Penguin (could be installed by `cargo install penguin-app`)
 
 ```bash
